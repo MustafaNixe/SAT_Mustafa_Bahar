@@ -11,3 +11,15 @@ Bu proje, mobil uygulama geliştirme dersi kapsamında hazırlanmıştır.
 Kullanıcılara sade, şık ve anlaşılır bir arayüz sunarak, kripto varlıklarını tek bir ekrandan yönetebilme kolaylığı sağlamaktır.
 Uygulama, yatırımcıların portföy değerlerini, günlük değişim oranlarını ve toplam kazançlarını takip edebilmelerine olanak tanır.
 
+ ⚙️ Geliştirici Bilgileri
+
+Öğrenci Adı: Mustafa Bahar
+
+Öğrenci No: 36504124036
+
+Bölüm: Bilgisayar Programcılığı
+
+Ders: Sistem Analizi ve Tasarımı
+
+Dönem: 2025-2026 Güz Dönemi
+
