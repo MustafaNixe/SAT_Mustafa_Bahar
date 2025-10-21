@@ -1,4 +1,4 @@
-<img width="1024" height="1024" alt="png" src="https://github.com/user-attachments/assets/87afa700-cac0-4410-b052-bc4c375201e7" />
+<img width="500" height="500" alt="png" src="https://github.com/user-attachments/assets/87afa700-cac0-4410-b052-bc4c375201e7" />
 
 💰 Proje Hakkında
 
