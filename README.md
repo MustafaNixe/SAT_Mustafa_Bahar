@@ -13,13 +13,13 @@ Uygulama, yatırımcıların portföy değerlerini, günlük değişim oranları
 
  ⚙️ Geliştirici Bilgileri
 
-Öğrenci Adı: Mustafa Bahar
+Öğrenci Adı: (Mustafa Bahar)
 
-Öğrenci No: 36504124036
+Öğrenci No: (36504124036)
 
-Bölüm: Bilgisayar Programcılığı
+Bölüm: (Bilgisayar Programcılığı)
 
-Ders: Sistem Analizi ve Tasarımı
+Ders: (Sistem Analizi ve Tasarımı)
 
-Dönem: 2025-2026 Güz Dönemi
+Dönem: (2025-2026 Güz Dönemi)
 
