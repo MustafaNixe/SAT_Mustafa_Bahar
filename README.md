@@ -23,3 +23,27 @@ Ders: (Sistem Analizi ve Tasarımı)
 
 Dönem: (2025-2026 Güz Dönemi)
 
+✅ Yapılacaklar Listesi (To-Do List)
+🔧 Geliştirme Aşamaları
+
+ Proje yapısının oluşturulması
+
+ Binance API anahtarlarının ayarlanması
+
+ Gerçek zamanlı fiyat verilerinin çekilmesi (WebSocket)
+
+ Grafik bileşenlerinin eklenmesi (örnek: LineChart, CandleStick)
+
+ Coin arama ve filtreleme sistemi
+
+ Favori coin kaydetme özelliği
+
+ Fiyat değişim yüzdelerini gösteren tablo
+
+ Karanlık (dark) ve aydınlık (light) tema desteği
+
+ Kullanıcı giriş sistemi (opsiyonel)
+
+ Performans ve hata testleri
+
+ README ekran görüntüleri ve demo gif eklenmesi
