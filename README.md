@@ -28,7 +28,7 @@ Dönem: (2025-2026 Güz Dönemi)
 
 - [x] Proje yapısının oluşturulması  
 - [x] Binance API anahtarlarının ayarlanması  
-- [ ] Gerçek zamanlı fiyat verilerinin çekilmesi (WebSocket)  
+- [x] Gerçek zamanlı fiyat verilerinin çekilmesi (WebSocket)  
 - [ ] Grafik bileşenlerinin eklenmesi (örnek: LineChart, CandleStick)  
 - [ ] Coin arama ve filtreleme sistemi  
 - [ ] Favori coin kaydetme özelliği  
