@@ -33,8 +33,16 @@ export type KlinePoint = {
 export async function fetchTickerPrice(symbol: string): Promise<number> {
   const res = await axios.get(`${BINANCE_API_BASE}/ticker/price`, {
     params: { symbol },
+    timeout: 10000,
+    headers: {
+      'Cache-Control': 'no-cache',
+    },
   });
-  return Number((res.data as TickerPrice).price);
+  const price = Number((res.data as TickerPrice).price);
+  if (!isFinite(price) || price <= 0) {
+    throw new Error(`Invalid price for ${symbol}`);
+  }
+  return price;
 }
 
 let cachedSpotSymbols: Set<string> | null = null;
@@ -111,18 +119,31 @@ export type Ticker24h = {
 
 export async function fetch24hTickersUSDT(): Promise<Record<string, { price: number; changePct: number; volumeQ?: number }>> {
   const [res, spotSet] = await Promise.all([
-    axios.get(`${BINANCE_API_BASE}/ticker/24hr`),
+    axios.get(`${BINANCE_API_BASE}/ticker/24hr`, {
+      timeout: 10000, // 10 saniye timeout
+      headers: {
+        'Cache-Control': 'no-cache',
+      },
+    }),
     ensureSpotSymbols(),
   ]);
   const list = res.data as Ticker24h[];
   const out: Record<string, { price: number; changePct: number; volumeQ?: number }> = {};
   for (const t of list) {
     if (t.symbol.endsWith('USDT') && spotSet.has(t.symbol)) {
-      out[t.symbol] = {
-        price: Number(t.lastPrice),
-        changePct: Number(t.priceChangePercent),
-        volumeQ: t.quoteVolume !== undefined ? Number(t.quoteVolume) : undefined,
-      };
+      // lastPrice alanı gerçek zamanlı son fiyatı verir
+      const price = Number(t.lastPrice);
+      const changePct = Number(t.priceChangePercent);
+      const volumeQ = t.quoteVolume !== undefined ? Number(t.quoteVolume) : undefined;
+      
+      // Sadece geçerli fiyatları ekle
+      if (isFinite(price) && price > 0) {
+        out[t.symbol] = {
+          price,
+          changePct: isFinite(changePct) ? changePct : 0,
+          volumeQ: volumeQ !== undefined && isFinite(volumeQ) ? volumeQ : undefined,
+        };
+      }
     }
   }
   return out;

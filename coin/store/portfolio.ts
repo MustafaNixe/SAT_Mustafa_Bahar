@@ -44,14 +44,35 @@ export function calculateTotals(
 ) {
   let invested = 0;
   let current = 0;
+  
   for (const it of items) {
-    invested += it.amount * it.avgBuyPrice;
-    const price = priceMap[it.symbol] ?? 0;
-    current += it.amount * price;
+    // Validate inputs
+    const amount = Number(it.amount) || 0;
+    const avgBuyPrice = Number(it.avgBuyPrice) || 0;
+    const price = Number(priceMap[it.symbol]) || 0;
+    
+    // Only calculate if values are valid
+    if (amount > 0 && avgBuyPrice > 0) {
+      const investedValue = amount * avgBuyPrice;
+      invested += investedValue;
+      
+      if (price > 0) {
+        const currentValue = amount * price;
+        current += currentValue;
+      }
+    }
   }
+  
+  // Calculate PnL with proper validation
   const pnl = current - invested;
-  const pnlPct = invested > 0 ? (pnl / invested) * 100 : 0;
-  return { invested, current, pnl, pnlPct };
+  const pnlPct = invested > 0 && isFinite(invested) ? (pnl / invested) * 100 : 0;
+  
+  return { 
+    invested: isFinite(invested) ? invested : 0, 
+    current: isFinite(current) ? current : 0, 
+    pnl: isFinite(pnl) ? pnl : 0, 
+    pnlPct: isFinite(pnlPct) ? pnlPct : 0 
+  };
 }
 
 
