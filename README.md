@@ -29,13 +29,13 @@ Dönem: (2025-2026 Güz Dönemi)
 - [x] Proje yapısının oluşturulması  
 - [x] Binance API anahtarlarının ayarlanması  
 - [x] Gerçek zamanlı fiyat verilerinin çekilmesi 
-- [ ] Grafik bileşenlerinin eklenmesi 
-- [ ] Coin arama ve filtreleme sistemi  
-- [ ] Favori coin kaydetme özelliği  
-- [ ] Fiyat değişim yüzdelerini gösteren tablo  
+- [x] Grafik bileşenlerinin eklenmesi 
+- [x] Coin arama ve filtreleme sistemi  
+- [x] Favori coin kaydetme özelliği  
+- [x] Fiyat değişim yüzdelerini gösteren tablo  
 - [ ] Karanlık (dark) ve aydınlık (light) tema desteği  
 - [ ] Kullanıcı giriş sistemi (opsiyonel)  
-- [ ] Performans ve hata testleri  
+- [x] Performans ve hata testleri  
 - [ ] README ekran görüntüleri ve demo gif eklenmesi  
 
 
