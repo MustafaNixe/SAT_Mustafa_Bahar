@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, View, Pressable, ScrollView, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, FlatList, View, Pressable, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { CoinAvatar } from '@/components/coin-avatar';
@@ -26,6 +26,7 @@ export default function MarketsScreen() {
   const success = useThemeColor({}, 'success');
   const danger = useThemeColor({}, 'danger');
   const tint = useThemeColor({}, 'tint');
+  const muted = useThemeColor({}, 'muted');
 
   useEffect(() => {
     let active = true;
@@ -81,9 +82,13 @@ export default function MarketsScreen() {
         return c.symbol.endsWith(activeFilter) && base.length > 0;
       })
       .filter((c) => {
-        if (!query) return true;
-        const search = query.toLowerCase().replace(activeFilter.toLowerCase(), '');
-        return c.symbol.toLowerCase().includes(search);
+        if (!query.trim()) return true;
+        const searchQuery = query.toLowerCase().trim();
+        const coinName = c.symbol.replace(activeFilter, '').toLowerCase();
+        const fullSymbol = c.symbol.toLowerCase();
+        
+        // Coin adında veya tam sembolde arama yap
+        return coinName.includes(searchQuery) || fullSymbol.includes(searchQuery);
       })
       .sort((a, b) => (b.volumeQ ?? 0) - (a.volumeQ ?? 0));
   }, [tickers, activeFilter, query]);
@@ -104,13 +109,52 @@ export default function MarketsScreen() {
     <ThemedView style={{ flex: 1 }} safe edges={['top']}>
       {/* Header */}
       <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <ThemedText type="title" style={{ fontSize: 24, fontWeight: 'bold' }}>
-            Anlık İşlem
-          </ThemedText>
-          <TouchableOpacity onPress={() => {}}>
-            <MaterialCommunityIcons name="magnify" size={24} color={text as string} />
-          </TouchableOpacity>
+        <View style={{ marginBottom: 16 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <View style={{ flex: 1 }}>
+              <ThemedText type="title" style={{ fontSize: 24, fontWeight: 'bold' }}>
+                Anlık İşlem
+              </ThemedText>
+              {!loading && (
+                <ThemedText style={{ fontSize: 14, opacity: 0.6, marginTop: 4 }}>
+                  {list.length} coin
+                </ThemedText>
+              )}
+            </View>
+          </View>
+
+          {/* Search Bar */}
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: bg as string,
+            borderWidth: 1,
+            borderColor: border as string,
+            borderRadius: 12,
+            paddingHorizontal: 12,
+            height: 44,
+          }}>
+            <MaterialCommunityIcons name="magnify" size={20} color={muted as string} style={{ marginRight: 8 }} />
+            <TextInput
+              placeholder="Coin ara (BTC, ETH, vb.)"
+              placeholderTextColor={muted as string}
+              value={query}
+              onChangeText={setQuery}
+              style={{
+                flex: 1,
+                color: text as string,
+                fontSize: 14,
+              }}
+            />
+            {query.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setQuery('')}
+                style={{ marginLeft: 8 }}
+              >
+                <MaterialCommunityIcons name="close-circle" size={20} color={muted as string} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {/* Filter Tabs */}
@@ -167,6 +211,11 @@ export default function MarketsScreen() {
           data={list}
           keyExtractor={(it) => it.symbol}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          updateCellsBatchingPeriod={50}
+          initialNumToRender={15}
+          windowSize={10}
           renderItem={({ item }) => {
             const coinName = item.symbol.replace(activeFilter, '');
             const isFavorite = favorites.has(item.symbol);

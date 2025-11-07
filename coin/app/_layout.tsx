@@ -20,13 +20,17 @@ export default function RootLayout() {
           screenOptions={{
             animation: 'simple_push',
             animationDuration: 200,
+            headerStyle: {
+              backgroundColor: colorScheme === 'dark' ? DarkTheme.colors.card : DefaultTheme.colors.card,
+            },
+            headerTintColor: colorScheme === 'dark' ? DarkTheme.colors.text : DefaultTheme.colors.text,
           }}
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           <Stack.Screen name="coin/[symbol]" options={{ headerShown: true, title: 'Coin Detay' }} />
         </Stack>
-        <StatusBar style="auto" />
+        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       </ThemeProvider>
     </SafeAreaProvider>
   );

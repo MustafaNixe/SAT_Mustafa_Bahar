@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Modal, Pressable, ScrollView, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, TextInput, TouchableOpacity, View, KeyboardAvoidingView, Platform } from 'react-native';
 import { Link } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -10,6 +10,7 @@ import { CoinAvatar } from '@/components/coin-avatar';
 import { SimpleChart } from '@/components/simple-chart';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type TimePeriod = '24H' | '1W' | '1M' | '1Y' | 'MAX';
 
@@ -33,6 +34,7 @@ export default function PortfolioScreen() {
   const border = useThemeColor({}, 'border');
   const text = useThemeColor({}, 'text');
   const tint = useThemeColor({}, 'tint');
+  const muted = useThemeColor({}, 'muted');
 
   useEffect(() => {
     let active = true;
@@ -325,8 +327,6 @@ export default function PortfolioScreen() {
     );
   }, [cardBg, border, success, danger, onRemove]);
 
-  const keyExtractor = useCallback((item: (typeof holdings)[0]) => item.symbol, []);
-
   return (
     <ThemedView style={{ flex: 1 }} safe edges={['top']}>
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
@@ -418,17 +418,13 @@ export default function PortfolioScreen() {
               <ThemedText style={{ opacity: 0.6 }}>Henüz coin eklenmedi</ThemedText>
             </View>
           ) : (
-            <FlatList
-              data={holdings}
-              scrollEnabled={false}
-              keyExtractor={keyExtractor}
-              renderItem={renderHoldingItem}
-              removeClippedSubviews={true}
-              maxToRenderPerBatch={10}
-              updateCellsBatchingPeriod={50}
-              initialNumToRender={10}
-              windowSize={5}
-            />
+            <View>
+              {holdings.map((item) => (
+                <View key={item.symbol}>
+                  {renderHoldingItem({ item })}
+                </View>
+              ))}
+            </View>
           )}
         </View>
 
@@ -453,7 +449,6 @@ export default function PortfolioScreen() {
       {/* Add Coin Modal */}
       <Modal
         visible={showAddModal}
-        transparent
         animationType="slide"
         onRequestClose={() => {
           setShowAddModal(false);
@@ -461,35 +456,34 @@ export default function PortfolioScreen() {
           setDraft({ symbol: '', amount: '', buy: '' });
         }}
       >
-        <View style={{
-          flex: 1,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          justifyContent: 'flex-end',
-        }}>
-          <View style={{
-            backgroundColor: cardBg as string,
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            padding: 20,
-            paddingBottom: 40,
-            maxHeight: '90%',
-          }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <ThemedText type="title" style={{ fontSize: 20, fontWeight: 'bold' }}>Coin Ekle</ThemedText>
-              <TouchableOpacity onPress={() => {
-                setShowAddModal(false);
-                setCoinSearchQuery('');
-                setDraft({ symbol: '', amount: '', buy: '' });
-              }}>
-                <MaterialCommunityIcons name="close" size={24} color={text as string} />
-              </TouchableOpacity>
-            </View>
+        <SafeAreaView style={{ flex: 1, backgroundColor: cardBg as string }} edges={['top', 'bottom']}>
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+          >
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <ThemedText type="title" style={{ fontSize: 20, fontWeight: 'bold' }}>Coin Ekle</ThemedText>
+                <TouchableOpacity onPress={() => {
+                  setShowAddModal(false);
+                  setCoinSearchQuery('');
+                  setDraft({ symbol: '', amount: '', buy: '' });
+                }}>
+                  <MaterialCommunityIcons name="close" size={24} color={text as string} />
+                </TouchableOpacity>
+              </View>
 
             {/* Coin Search */}
             <View style={{ marginBottom: 16 }}>
               <TextInput
                 placeholder="Coin ara (BTC, ETH, vb.)"
-                placeholderTextColor={text as string}
+                placeholderTextColor={muted as string}
                 value={coinSearchQuery}
                 onChangeText={setCoinSearchQuery}
                 style={{
@@ -499,66 +493,90 @@ export default function PortfolioScreen() {
                   padding: 12,
                   color: text as string,
                   backgroundColor: cardBg as string,
+                  fontSize: 16,
                 }}
               />
             </View>
 
-            {/* Coin List */}
+            {/* Coin List - Scrollable Container */}
             {loadingCoins ? (
-              <View style={{ height: 200, alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ height: 200, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
                 <ThemedText style={{ opacity: 0.6 }}>Coinler yükleniyor...</ThemedText>
               </View>
             ) : filteredCoins.length > 0 ? (
-              <View style={{ maxHeight: 300, marginBottom: 16 }}>
-                <FlatList
-                  data={filteredCoins}
-                  keyExtractor={(item) => item.symbol}
-                  renderItem={({ item }) => {
+              <View style={{ 
+                marginBottom: 16,
+                borderWidth: 1,
+                borderColor: border as string,
+                borderRadius: 12,
+                backgroundColor: cardBg as string,
+                maxHeight: 250,
+                overflow: 'hidden',
+              }}>
+                <ScrollView 
+                  style={{ flexGrow: 0 }}
+                  nestedScrollEnabled={true}
+                  showsVerticalScrollIndicator={true}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  {filteredCoins.map((item, index) => {
                     const coinName = item.symbol.replace('USDT', '');
                     return (
-                      <Pressable
-                        onPress={() => onCoinSelect(item.symbol, item.price)}
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          paddingVertical: 12,
-                          paddingHorizontal: 12,
-                          borderRadius: 8,
-                          marginBottom: 4,
-                          backgroundColor: draft.symbol.toUpperCase() === coinName ? (tint as string) + '20' : 'transparent',
-                        }}
-                      >
-                        <CoinAvatar symbol={item.symbol} size={32} />
-                        <View style={{ flex: 1, marginLeft: 12 }}>
-                          <ThemedText style={{ fontSize: 15, fontWeight: '600' }}>
-                            {coinName}
-                          </ThemedText>
-                          <ThemedText style={{ fontSize: 12, opacity: 0.6 }}>
-                            ${item.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
-                          </ThemedText>
-                        </View>
-                        <View style={{ alignItems: 'flex-end' }}>
-                          <ThemedText style={{ fontSize: 12, opacity: 0.6 }}>
-                            {item.changePct >= 0 ? '+' : ''}{item.changePct.toFixed(2)}%
-                          </ThemedText>
-                        </View>
-                      </Pressable>
+                      <View key={item.symbol}>
+                        <Pressable
+                          onPress={() => onCoinSelect(item.symbol, item.price)}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            paddingVertical: 12,
+                            paddingHorizontal: 16,
+                          }}
+                        >
+                          <CoinAvatar symbol={item.symbol} size={32} />
+                          <View style={{ flex: 1, marginLeft: 12 }}>
+                            <ThemedText style={{ fontSize: 15, fontWeight: '600' }}>
+                              {coinName}
+                            </ThemedText>
+                            <ThemedText style={{ fontSize: 12, opacity: 0.6 }}>
+                              ${item.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                            </ThemedText>
+                          </View>
+                          <View style={{ alignItems: 'flex-end' }}>
+                            <ThemedText style={{ 
+                              fontSize: 12, 
+                              color: item.changePct >= 0 ? (success as string) : (danger as string),
+                              fontWeight: '600',
+                            }}>
+                              {item.changePct >= 0 ? '+' : ''}{item.changePct.toFixed(2)}%
+                            </ThemedText>
+                          </View>
+                        </Pressable>
+                        {index < filteredCoins.length - 1 && (
+                          <View style={{ 
+                            height: 1, 
+                            backgroundColor: border as string, 
+                            marginHorizontal: 16,
+                            opacity: 0.2,
+                          }} />
+                        )}
+                      </View>
                     );
-                  }}
-                />
+                  })}
+                </ScrollView>
               </View>
             ) : coinSearchQuery ? (
-              <View style={{ height: 200, alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ height: 150, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
                 <ThemedText style={{ opacity: 0.6 }}>Sonuç bulunamadı</ThemedText>
               </View>
             ) : null}
 
+            {/* Input Fields */}
             <View style={{ gap: 16 }}>
               <View>
                 <ThemedText style={{ fontSize: 14, marginBottom: 8, opacity: 0.7 }}>Coin Sembolü</ThemedText>
                 <TextInput
                   placeholder="BTC, ETH, vb."
-                  placeholderTextColor={text as string}
+                  placeholderTextColor={muted as string}
                   value={draft.symbol}
                   onChangeText={(t) => setDraft((d) => ({ ...d, symbol: t }))}
                   style={{
@@ -576,7 +594,7 @@ export default function PortfolioScreen() {
                 <ThemedText style={{ fontSize: 14, marginBottom: 8, opacity: 0.7 }}>Miktar</ThemedText>
                 <TextInput
                   placeholder="0.5"
-                  placeholderTextColor={text as string}
+                  placeholderTextColor={muted as string}
                   keyboardType="decimal-pad"
                   value={draft.amount}
                   onChangeText={(t) => setDraft((d) => ({ ...d, amount: t }))}
@@ -595,7 +613,7 @@ export default function PortfolioScreen() {
                 <ThemedText style={{ fontSize: 14, marginBottom: 8, opacity: 0.7 }}>Alış Fiyatı (USDT)</ThemedText>
                 <TextInput
                   placeholder="60000"
-                  placeholderTextColor={text as string}
+                  placeholderTextColor={muted as string}
                   keyboardType="decimal-pad"
                   value={draft.buy}
                   onChangeText={(t) => setDraft((d) => ({ ...d, buy: t }))}
@@ -625,8 +643,9 @@ export default function PortfolioScreen() {
                 </ThemedText>
               </Pressable>
             </View>
-          </View>
-        </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
       </Modal>
     </ThemedView>
   );
