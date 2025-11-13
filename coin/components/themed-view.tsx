@@ -14,21 +14,23 @@ export function ThemedView({
   style, 
   lightColor, 
   darkColor, 
+  pointerEvents,
   safe = false,
   edges = ['top', 'bottom'],
   ...otherProps 
 }: ThemedViewProps) {
   const backgroundColor = useThemeColor({ light: lightColor, dark: darkColor }, 'background');
+  const pointerEventsStyle = pointerEvents ? { pointerEvents } : null;
 
   if (safe) {
     return (
       <SafeAreaView 
-        style={[{ backgroundColor }, style]} 
+        style={[{ backgroundColor }, pointerEventsStyle, style]} 
         edges={edges}
         {...otherProps} 
       />
     );
   }
 
-  return <View style={[{ backgroundColor }, style]} {...otherProps} />;
+  return <View style={[{ backgroundColor }, pointerEventsStyle, style]} {...otherProps} />;
 }

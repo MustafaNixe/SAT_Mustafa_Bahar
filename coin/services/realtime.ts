@@ -1,4 +1,5 @@
-import { getSpotSymbols } from '@/services/binance';
+import { getTradableSymbols } from '@/services/binance';
+import { MARKET_CONFIG } from '@/services/market-config';
 
 export type Ticker24h = {
   e: string; // Event type
@@ -20,7 +21,7 @@ export type TickerUpdate = Record<string, { price: number; changePct: number; vo
 let globalWS: WebSocket | null = null;
 let globalSubscribers: Set<(data: TickerUpdate) => void> = new Set();
 let globalClosed = false;
-let globalReconnectTimer: NodeJS.Timeout | null = null;
+let globalReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
 function startGlobalWebSocket() {
   // Eğer zaten açık veya bağlanıyorsa, yeni bağlantı açma
@@ -47,7 +48,7 @@ function startGlobalWebSocket() {
 
   try {
     // @ticker stream - hem fiyat hem 24h bilgisi (her 1 saniyede güncellenir, güvenilir)
-    globalWS = new WebSocket('wss://stream.binance.com:9443/ws/!ticker@arr');
+    globalWS = new WebSocket(`${MARKET_CONFIG.wsBase}/${MARKET_CONFIG.arrStream}`);
     
     globalWS.onopen = () => {
       if (globalReconnectTimer) {
@@ -59,7 +60,7 @@ function startGlobalWebSocket() {
     globalWS.onmessage = async (ev) => {
       try {
         const arr = JSON.parse(ev.data as string) as Ticker24h[];
-        const spotSet = await getSpotSymbols();
+        const spotSet = await getTradableSymbols();
         const out: TickerUpdate = {};
         
         for (const t of arr) {

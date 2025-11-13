@@ -4,7 +4,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { CoinAvatar } from '@/components/coin-avatar';
 import { Sparkline } from '@/components/sparkline';
-import { fetch24hTickersUSDT, fetchKlines } from '@/services/binance';
+import { fetch24hTickersUSDT, fetchKlines, fetchAllUSDTPrices } from '@/services/binance';
 import { startUSDTSpotMiniTicker } from '@/services/realtime';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -49,6 +49,47 @@ export default function MarketsScreen() {
     return () => {
       active = false;
       stop();
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const syncLatestPrices = async () => {
+      try {
+        const snapshot = await fetchAllUSDTPrices();
+        if (!active) return;
+        setTickers((prev) => {
+          const next = { ...prev };
+          for (const [symbol, price] of Object.entries(snapshot)) {
+            const prevEntry = next[symbol];
+            if (prevEntry) {
+              next[symbol] = { ...prevEntry, price };
+            } else {
+              next[symbol] = { price, changePct: 0 };
+            }
+          }
+          return next;
+        });
+      } catch (err) {
+        console.warn('Failed to refresh spot price snapshot', err);
+      }
+    };
+
+    const schedule = () => {
+      timer = setTimeout(async () => {
+        await syncLatestPrices();
+        if (active) schedule();
+      }, 15_000);
+    };
+
+    syncLatestPrices();
+    schedule();
+
+    return () => {
+      active = false;
+      if (timer) clearTimeout(timer);
     };
   }, []);
 

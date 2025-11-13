@@ -1,18 +1,16 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
 
-const RAW_BASE = 'https://api.binance.com/api/v3';
-const BINANCE_API_BASE = Platform.OS === 'web'
-  ? `https://cors.isomorphic-git.org/${RAW_BASE}`
-  : RAW_BASE;
+import { MARKET_CONFIG } from '@/services/market-config';
+
+const RAW_BASE = MARKET_CONFIG.restBase;
+const BINANCE_API_BASE =
+  Platform.OS === 'web'
+    ? `https://cors.isomorphic-git.org/${RAW_BASE}`
+    : RAW_BASE;
 
 type ExchangeInfo = {
-  symbols: Array<{
-    symbol: string;
-    status: string; // e.g., 'TRADING'
-    permissions?: string[]; // includes 'SPOT' for spot markets
-    isSpotTradingAllowed?: boolean;
-  }>;
+  symbols: Array<any>;
 };
 
 export type TickerPrice = {
@@ -45,37 +43,33 @@ export async function fetchTickerPrice(symbol: string): Promise<number> {
   return price;
 }
 
-let cachedSpotSymbols: Set<string> | null = null;
+let cachedTradableSymbols: Set<string> | null = null;
 
-async function ensureSpotSymbols(): Promise<Set<string>> {
-  if (cachedSpotSymbols) return cachedSpotSymbols;
-  const res = await axios.get(`${BINANCE_API_BASE}/exchangeInfo`);
+async function ensureTradableSymbols(): Promise<Set<string>> {
+  if (cachedTradableSymbols) return cachedTradableSymbols;
+  const res = await axios.get(`${BINANCE_API_BASE}${MARKET_CONFIG.exchangeInfoPath}`);
   const info = res.data as ExchangeInfo;
   const set = new Set<string>();
   for (const s of info.symbols) {
-    const isTrading = s.status === 'TRADING';
-    const byPerm = Array.isArray(s.permissions) ? s.permissions.includes('SPOT') : false;
-    const byFlag = s.isSpotTradingAllowed === true;
-    const isSpot = byPerm || byFlag;
-    if (isTrading && isSpot) set.add(s.symbol);
+    if (MARKET_CONFIG.filterSymbol(s)) set.add(s.symbol);
   }
-  cachedSpotSymbols = set;
+  cachedTradableSymbols = set;
   return set;
 }
 
-export async function getSpotSymbols(): Promise<Set<string>> {
-  return ensureSpotSymbols();
+export async function getTradableSymbols(): Promise<Set<string>> {
+  return ensureTradableSymbols();
 }
 
 export async function fetchAllUSDTPrices(): Promise<Record<string, number>> {
-  const [res, spotSet] = await Promise.all([
+  const [res, tradableSet] = await Promise.all([
     axios.get(`${BINANCE_API_BASE}/ticker/price`),
-    ensureSpotSymbols(),
+    ensureTradableSymbols(),
   ]);
   const list = res.data as TickerPrice[];
   const map: Record<string, number> = {};
   for (const t of list) {
-    if (t.symbol.endsWith('USDT') && spotSet.has(t.symbol)) map[t.symbol] = Number(t.price);
+    if (t.symbol.endsWith('USDT') && tradableSet.has(t.symbol)) map[t.symbol] = Number(t.price);
   }
   return map;
 }
@@ -118,19 +112,19 @@ export type Ticker24h = {
 };
 
 export async function fetch24hTickersUSDT(): Promise<Record<string, { price: number; changePct: number; volumeQ?: number }>> {
-  const [res, spotSet] = await Promise.all([
+  const [res, tradableSet] = await Promise.all([
     axios.get(`${BINANCE_API_BASE}/ticker/24hr`, {
       timeout: 10000, // 10 saniye timeout
       headers: {
         'Cache-Control': 'no-cache',
       },
     }),
-    ensureSpotSymbols(),
+    ensureTradableSymbols(),
   ]);
   const list = res.data as Ticker24h[];
   const out: Record<string, { price: number; changePct: number; volumeQ?: number }> = {};
   for (const t of list) {
-    if (t.symbol.endsWith('USDT') && spotSet.has(t.symbol)) {
+    if (t.symbol.endsWith('USDT') && tradableSet.has(t.symbol)) {
       // lastPrice alanı gerçek zamanlı son fiyatı verir
       const price = Number(t.lastPrice);
       const changePct = Number(t.priceChangePercent);
