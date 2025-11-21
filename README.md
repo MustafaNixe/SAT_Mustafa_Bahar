@@ -33,9 +33,8 @@ Dönem: (2025-2026 Güz Dönemi)
 - [x] Coin arama ve filtreleme sistemi  
 - [x] Favori coin kaydetme özelliği  
 - [x] Fiyat değişim yüzdelerini gösteren tablo  
-- [ ] Karanlık (dark) ve aydınlık (light) tema desteği  
-- [ ] Kullanıcı giriş sistemi (opsiyonel)  
-- [x] Performans ve hata testleri  
-- [ ] README ekran görüntüleri ve demo gif eklenmesi  
+- [x] Karanlık (dark) ve aydınlık (light) tema desteği  
+- [x] Kullanıcı giriş sistemi (opsiyonel)  
+- [x] Performans ve hata testleri   
 
 
