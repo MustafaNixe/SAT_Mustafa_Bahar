@@ -1,6 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 
 export type PortfolioItem = {
   symbol: string; // e.g., BTCUSDT
@@ -10,32 +9,98 @@ export type PortfolioItem = {
 
 type PortfolioState = {
   items: PortfolioItem[];
+  userId: string | null; // Track which user owns this portfolio
   addOrUpdate: (item: PortfolioItem) => void;
   remove: (symbol: string) => void;
   clear: () => void;
+  setUserId: (userId: string | null) => Promise<void>; // Set user ID and load/reset portfolio
+};
+
+// Get storage key based on user ID
+const getStorageKey = (userId: string | null) => {
+  return userId ? `portfolio-store-${userId}` : 'portfolio-store-guest';
 };
 
 export const usePortfolioStore = create<PortfolioState>()(
-  persist(
-    (set, get) => ({
-      items: [],
-      addOrUpdate: (next) =>
-        set((state) => {
-          const idx = state.items.findIndex((i) => i.symbol === next.symbol);
-          const items = [...state.items];
-          if (idx >= 0) items[idx] = next; else items.push(next);
-          return { items };
-        }),
-      remove: (symbol) =>
-        set((state) => ({ items: state.items.filter((i) => i.symbol !== symbol) })),
-      clear: () => set({ items: [] }),
-    }),
-    {
-      name: 'portfolio-store-v1',
-      storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({ items: state.items }),
-    }
-  )
+  (set, get) => ({
+    items: [],
+    userId: null,
+    
+    setUserId: async (newUserId: string | null) => {
+      const currentUserId = get().userId;
+      
+      // If user changed, load their portfolio or reset to empty
+      if (currentUserId !== newUserId) {
+        // Clear current items first
+        set({ items: [], userId: newUserId });
+        
+        // Load user-specific portfolio from storage
+        if (newUserId) {
+          try {
+            const storageKey = getStorageKey(newUserId);
+            const stored = await AsyncStorage.getItem(storageKey);
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              if (parsed.items && Array.isArray(parsed.items)) {
+                set({ items: parsed.items, userId: newUserId });
+              }
+            }
+          } catch (error) {
+            console.error('Error loading user portfolio:', error);
+            set({ items: [], userId: newUserId });
+          }
+        } else {
+          set({ items: [], userId: null });
+        }
+      }
+    },
+    
+    addOrUpdate: (next) => {
+      set((state) => {
+        const idx = state.items.findIndex((i) => i.symbol === next.symbol);
+        const items = [...state.items];
+        if (idx >= 0) items[idx] = next; else items.push(next);
+        
+        // Save to user-specific storage
+        const userId = state.userId;
+        if (userId) {
+          const storageKey = getStorageKey(userId);
+          AsyncStorage.setItem(storageKey, JSON.stringify({ items, userId })).catch(() => {});
+        }
+        
+        return { items };
+      });
+    },
+    
+    remove: (symbol) => {
+      set((state) => {
+        const items = state.items.filter((i) => i.symbol !== symbol);
+        
+        // Save to user-specific storage
+        const userId = state.userId;
+        if (userId) {
+          const storageKey = getStorageKey(userId);
+          AsyncStorage.setItem(storageKey, JSON.stringify({ items, userId })).catch(() => {});
+        }
+        
+        return { items };
+      });
+    },
+    
+    clear: () => {
+      set((state) => {
+        const userId = state.userId;
+        
+        // Clear user-specific storage
+        if (userId) {
+          const storageKey = getStorageKey(userId);
+          AsyncStorage.removeItem(storageKey).catch(() => {});
+        }
+        
+        return { items: [] };
+      });
+    },
+  })
 );
 
 export function calculateTotals(

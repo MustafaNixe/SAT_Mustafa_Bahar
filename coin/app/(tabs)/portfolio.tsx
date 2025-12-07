@@ -1,6 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, TextInput, TouchableOpacity, View, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { Alert, Modal, Pressable, ScrollView, TextInput, TouchableOpacity, View, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
 import { Link } from 'expo-router';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const IS_SMALL_SCREEN = SCREEN_WIDTH < 375;
+const IS_MEDIUM_SCREEN = SCREEN_WIDTH >= 375 && SCREEN_WIDTH < 414;
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { usePortfolioStore, calculateTotals } from '@/store/portfolio';
@@ -8,6 +12,7 @@ import { fetchAllUSDTPrices, fetchKlines, fetch24hTickersUSDT } from '@/services
 import { startUSDTSpotMiniTicker } from '@/services/realtime';
 import { CoinAvatar } from '@/components/coin-avatar';
 import { SimpleChart } from '@/components/simple-chart';
+import { PortfolioChart } from '@/components/portfolio-chart';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,7 +27,7 @@ export default function PortfolioScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [draft, setDraft] = useState({ symbol: '', amount: '', buy: '' });
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('1W');
-  const [chartData, setChartData] = useState<{ x: number; y: number }[]>([]);
+  const [chartData, setChartData] = useState<{ x: number; y: number; date?: string; isInvestment?: boolean }[]>([]);
   const [loadingChart, setLoadingChart] = useState(false);
   const [coinSearchQuery, setCoinSearchQuery] = useState('');
   const [availableCoins, setAvailableCoins] = useState<Record<string, { price: number; changePct: number; volumeQ?: number }>>({});
@@ -61,7 +66,7 @@ export default function PortfolioScreen() {
     };
   }, []);
 
-  // Load portfolio chart data
+  // Load portfolio chart data - Optimized algorithm (only recalculate when items or timePeriod changes)
   useEffect(() => {
     if (items.length === 0) {
       setChartData([]);
@@ -81,27 +86,80 @@ export default function PortfolioScreen() {
         const params = intervalMap[timePeriod];
         const points: { x: number; y: number }[] = [];
         
-        // Calculate portfolio value for each point in time
+        // Get unique symbols to fetch klines in parallel
+        const uniqueSymbols = Array.from(new Set(items.map(item => item.symbol)));
+        
+        // Fetch all klines in parallel for better performance
+        const klinesMap: Record<string, any[]> = {};
+        await Promise.all(
+          uniqueSymbols.map(async (symbol) => {
+            try {
+              const klines = await fetchKlines(symbol, params.interval, params.limit);
+              if (active) {
+                klinesMap[symbol] = klines;
+              }
+            } catch (err) {
+              console.warn(`Failed to fetch klines for ${symbol}:`, err);
+              klinesMap[symbol] = [];
+            }
+          })
+        );
+        
+        if (!active) return;
+        
+        // Calculate portfolio value for each historical point
+        // This shows how portfolio value changes over time
+        // When money is added, portfolio value increases, graph goes up
+        // When in profit (current > invested), graph is green
+        // When in loss (current < invested), graph is red
         for (let i = 0; i < params.limit; i++) {
           let totalValue = 0;
+          
+          // For each coin in portfolio, calculate value at this time point
           for (const item of items) {
-            try {
-              const klines = await fetchKlines(item.symbol, params.interval, params.limit);
-              if (klines.length > i) {
-                const historicalPrice = Number(klines[klines.length - 1 - i]?.close) || 0;
-                totalValue += item.amount * historicalPrice;
+            const klines = klinesMap[item.symbol];
+            if (klines && klines.length > 0) {
+              // Get price at this historical point
+              // i=0 is most recent, i=limit-1 is oldest
+              const historicalIndex = klines.length - 1 - i;
+              if (historicalIndex >= 0 && historicalIndex < klines.length) {
+                const historicalPrice = Number(klines[historicalIndex]?.close) || 0;
+                if (historicalPrice > 0) {
+                  // Portfolio value = amount * price at that time
+                  // This naturally increases when coins are added
+                  totalValue += item.amount * historicalPrice;
+                }
               }
-            } catch {}
+            }
           }
+          
+          // If we have a valid value, add it to points
+          // Portfolio value includes all investments, so adding money increases the graph
           if (totalValue > 0) {
-            points.push({ x: i, y: totalValue });
+            // Format date for display (optional)
+            const date = new Date();
+            date.setDate(date.getDate() - (params.limit - 1 - i));
+            const dateStr = date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+            
+            points.push({ 
+              x: i, 
+              y: totalValue,
+              date: dateStr,
+              isInvestment: false // Will be set based on portfolio changes
+            });
           }
         }
         
+        // Sort points by x (time) - oldest to newest
+        points.sort((a, b) => a.x - b.x);
+        
         if (!active) return;
-        setChartData(points.reverse());
+        setChartData(points);
       } catch (err) {
         console.error('Error loading chart:', err);
+        if (active) {
+          setChartData([]);
+        }
       } finally {
         if (active) {
           setLoadingChart(false);
@@ -111,7 +169,62 @@ export default function PortfolioScreen() {
     return () => {
       active = false;
     };
-  }, [items, timePeriod, prices]);
+  }, [items, timePeriod]); // Removed 'prices' from dependencies to prevent constant recalculation
+
+  // Track last portfolio value to prevent unnecessary updates
+  const lastPortfolioValueRef = useRef<number>(0);
+  // Track previous items count to detect when money is added
+  const previousItemsCountRef = useRef<number>(0);
+  
+  // Update only the last point with current portfolio value (separate effect for real-time updates)
+  useEffect(() => {
+    if (chartData.length === 0 || items.length === 0) return;
+    
+    // Calculate current portfolio value (always includes all investments)
+    const currentPortfolioValue = items.reduce((sum, item) => {
+      const currentPrice = prices[item.symbol] || 0;
+      // Use current price if available, otherwise use invested value
+      if (currentPrice > 0) {
+        return sum + (item.amount * currentPrice);
+      } else {
+        // If price not available, use invested value so graph shows investment
+        return sum + (item.amount * item.avgBuyPrice);
+      }
+    }, 0);
+    
+    // Check if new coin was added (investment event)
+    const isNewInvestment = items.length > previousItemsCountRef.current;
+    if (isNewInvestment) {
+      previousItemsCountRef.current = items.length;
+    }
+    
+    // Only update if value changed significantly (more than 0.01 to prevent micro-updates)
+    if (currentPortfolioValue > 0 && Math.abs(lastPortfolioValueRef.current - currentPortfolioValue) > 0.01) {
+      lastPortfolioValueRef.current = currentPortfolioValue;
+      
+      setChartData((prevData) => {
+        if (prevData.length === 0) return prevData;
+        
+        // Create new array to avoid mutation
+        const newData = [...prevData];
+        const lastIndex = newData.length - 1;
+        
+        if (lastIndex >= 0) {
+          newData[lastIndex] = { 
+            ...newData[lastIndex], 
+            y: currentPortfolioValue,
+            isInvestment: isNewInvestment // Mark as investment if new coin added
+          };
+          return newData;
+        }
+        
+        return prevData;
+      });
+    } else if (isNewInvestment) {
+      // Even if value didn't change much, update investment flag
+      previousItemsCountRef.current = items.length;
+    }
+  }, [prices, items]); // Removed chartData.length to prevent loop
 
   const totals = useMemo(() => {
     let invested = 0;
@@ -258,19 +371,25 @@ export default function PortfolioScreen() {
         style={{
           backgroundColor: cardBg as string,
           borderRadius: 12,
-          padding: 16,
-          marginBottom: 12,
+          padding: IS_SMALL_SCREEN ? 12 : 16,
+          marginBottom: IS_SMALL_SCREEN ? 10 : 12,
         }}
       >
         <Link href={{ pathname: '/coin/[symbol]', params: { symbol: item.symbol } }} asChild>
           <Pressable>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-              <CoinAvatar symbol={item.symbol} size={40} />
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <ThemedText style={{ fontSize: 16, fontWeight: '600', marginBottom: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: IS_SMALL_SCREEN ? 10 : 12 }}>
+              <CoinAvatar symbol={item.symbol} size={IS_SMALL_SCREEN ? 36 : 40} />
+              <View style={{ flex: 1, marginLeft: IS_SMALL_SCREEN ? 10 : 12 }}>
+                <ThemedText 
+                  numberOfLines={1}
+                  style={{ fontSize: IS_SMALL_SCREEN ? 14 : 16, fontWeight: '600', marginBottom: 4 }}>
                   {coinName}
                 </ThemedText>
-                <ThemedText style={{ fontSize: 12, opacity: 0.6 }}>
+                <ThemedText 
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                  style={{ fontSize: IS_SMALL_SCREEN ? 11 : 12, opacity: 0.6 }}>
                   ${item.currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
                 </ThemedText>
               </View>
@@ -279,22 +398,30 @@ export default function PortfolioScreen() {
                   e.stopPropagation();
                   onRemove(item.symbol);
                 }}
-                style={{ padding: 8 }}
+                style={{ padding: IS_SMALL_SCREEN ? 6 : 8 }}
               >
-                <MaterialCommunityIcons name="delete-outline" size={20} color={danger as string} />
+                <MaterialCommunityIcons name="delete-outline" size={IS_SMALL_SCREEN ? 18 : 20} color={danger as string} />
               </TouchableOpacity>
             </View>
 
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-              <View>
-                <ThemedText style={{ fontSize: 12, opacity: 0.6, marginBottom: 4 }}>Değer</ThemedText>
-                <ThemedText style={{ fontSize: 16, fontWeight: '600' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: IS_SMALL_SCREEN ? 6 : 8 }}>
+              <View style={{ flex: 1 }}>
+                <ThemedText style={{ fontSize: IS_SMALL_SCREEN ? 11 : 12, opacity: 0.6, marginBottom: 4 }}>Değer</ThemedText>
+                <ThemedText 
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                  style={{ fontSize: IS_SMALL_SCREEN ? 14 : 16, fontWeight: '600' }}>
                   ${item.currentValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </ThemedText>
               </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <ThemedText style={{ fontSize: 12, opacity: 0.6, marginBottom: 4 }}>Miktar</ThemedText>
-                <ThemedText style={{ fontSize: 14, fontWeight: '600' }}>
+              <View style={{ alignItems: 'flex-end', flex: 1, marginLeft: 8 }}>
+                <ThemedText style={{ fontSize: IS_SMALL_SCREEN ? 11 : 12, opacity: 0.6, marginBottom: 4 }}>Miktar</ThemedText>
+                <ThemedText 
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                  style={{ fontSize: IS_SMALL_SCREEN ? 12 : 14, fontWeight: '600', textAlign: 'right' }}>
                   {item.amount.toLocaleString('en-US', { maximumFractionDigits: 8 })} {coinName}
                 </ThemedText>
               </View>
@@ -304,19 +431,23 @@ export default function PortfolioScreen() {
               flexDirection: 'row',
               justifyContent: 'space-between',
               alignItems: 'center',
-              marginTop: 8,
-              paddingTop: 8,
+              marginTop: IS_SMALL_SCREEN ? 6 : 8,
+              paddingTop: IS_SMALL_SCREEN ? 6 : 8,
               borderTopWidth: 1,
               borderTopColor: border as string,
             }}>
-              <ThemedText style={{ fontSize: 12, opacity: 0.6 }}>Kar/Zarar</ThemedText>
+              <ThemedText style={{ fontSize: IS_SMALL_SCREEN ? 11 : 12, opacity: 0.6 }}>Kar/Zarar</ThemedText>
               <View style={{
                 backgroundColor: isPositive ? (success as string) : (danger as string),
-                paddingHorizontal: 8,
-                paddingVertical: 4,
+                paddingHorizontal: IS_SMALL_SCREEN ? 6 : 8,
+                paddingVertical: IS_SMALL_SCREEN ? 3 : 4,
                 borderRadius: 6,
               }}>
-                <ThemedText style={{ color: '#ffffff', fontSize: 12, fontWeight: '600' }}>
+                <ThemedText 
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                  style={{ color: '#ffffff', fontSize: IS_SMALL_SCREEN ? 11 : 12, fontWeight: '600' }}>
                   {isPositive ? '▲' : '▼'} ${Math.abs(item.pnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </ThemedText>
               </View>
@@ -330,84 +461,149 @@ export default function PortfolioScreen() {
   return (
     <ThemedView style={{ flex: 1 }} safe edges={['top']}>
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 20 }}>
-          {/* Portfolio Value */}
-          <View style={{ alignItems: 'center', marginBottom: 20 }}>
-            <ThemedText style={{ fontSize: 14, opacity: 0.6, marginBottom: 8 }}>Toplam Portföy Değeri</ThemedText>
-            <ThemedText type="title" style={{ fontSize: 36, fontWeight: 'bold', marginBottom: 12 }}>
+        {/* Header - Portfolio Value Card */}
+        <View style={{ 
+          paddingHorizontal: IS_SMALL_SCREEN ? 12 : 16, 
+          paddingTop: IS_SMALL_SCREEN ? 12 : 16, 
+          paddingBottom: IS_SMALL_SCREEN ? 10 : 12 
+        }}>
+          <View style={{
+            backgroundColor: cardBg as string,
+            borderRadius: 16,
+            padding: IS_SMALL_SCREEN ? 16 : 20,
+            marginBottom: IS_SMALL_SCREEN ? 12 : 16,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+            elevation: 3,
+          }}>
+            <ThemedText style={{ 
+              fontSize: IS_SMALL_SCREEN ? 12 : 13, 
+              opacity: 0.7, 
+              marginBottom: IS_SMALL_SCREEN ? 6 : 8, 
+              textAlign: 'center' 
+            }}>
+              Toplam Portföy Değeri
+            </ThemedText>
+            <ThemedText 
+              type="title" 
+              style={{ 
+                fontSize: IS_SMALL_SCREEN ? 24 : IS_MEDIUM_SCREEN ? 28 : 32, 
+                fontWeight: 'bold', 
+                marginBottom: IS_SMALL_SCREEN ? 10 : 12,
+                textAlign: 'center',
+              }}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
               ${totals.current.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </ThemedText>
             <View style={{
               backgroundColor: totals.pnl >= 0 ? (success as string) : (danger as string),
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              borderRadius: 8,
+              paddingHorizontal: IS_SMALL_SCREEN ? 12 : 16,
+              paddingVertical: IS_SMALL_SCREEN ? 6 : 8,
+              borderRadius: 10,
+              alignSelf: 'center',
             }}>
-              <ThemedText style={{ color: '#ffffff', fontSize: 14, fontWeight: '600' }}>
+              <ThemedText style={{ 
+                color: '#ffffff', 
+                fontSize: IS_SMALL_SCREEN ? 12 : 14, 
+                fontWeight: '600' 
+              }}>
                 {totals.pnl >= 0 ? '▲' : '▼'} ${Math.abs(totals.pnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </ThemedText>
             </View>
           </View>
+        </View>
 
-          {/* Chart */}
+        {/* Chart Section */}
+        <View style={{ 
+          paddingHorizontal: IS_SMALL_SCREEN ? 12 : 16, 
+          marginBottom: IS_SMALL_SCREEN ? 12 : 16 
+        }}>
           <View style={{
-            height: 200,
+            height: IS_SMALL_SCREEN ? 240 : 280,
             backgroundColor: cardBg as string,
-            borderRadius: 12,
-            padding: 12,
-            marginBottom: 16,
+            borderRadius: 16,
+            padding: IS_SMALL_SCREEN ? 12 : 16,
+            overflow: 'hidden',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+            elevation: 3,
           }}>
             {loadingChart ? (
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                <ThemedText style={{ opacity: 0.6 }}>Grafik yükleniyor...</ThemedText>
+                <ThemedText style={{ opacity: 0.6, fontSize: IS_SMALL_SCREEN ? 12 : 14 }}>Grafik yükleniyor...</ThemedText>
               </View>
             ) : chartData.length > 0 ? (
-              <SimpleChart
+              <PortfolioChart
                 data={chartData}
-                height={176}
-                width={300}
-                color={totals.pnl >= 0 ? success : danger}
-                showGradient={true}
+                height={IS_SMALL_SCREEN ? 216 : 248}
+                width="100%"
+                bullishColor={success as string}
+                bearishColor={danger as string}
+                showGrid={true}
+                interactive={true}
+                investedValue={totals.invested}
               />
             ) : (
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                <ThemedText style={{ opacity: 0.6 }}>Grafik verisi yok</ThemedText>
+                <ThemedText style={{ opacity: 0.6, fontSize: IS_SMALL_SCREEN ? 12 : 14 }}>Grafik verisi yok</ThemedText>
               </View>
             )}
           </View>
+        </View>
 
-          {/* Time Period Buttons */}
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
-            {(['24H', '1W', '1M', '1Y', 'MAX'] as TimePeriod[]).map((period) => (
-              <Pressable
-                key={period}
-                onPress={() => setTimePeriod(period)}
-                style={{
-                  flex: 1,
-                  paddingVertical: 8,
-                  paddingHorizontal: 12,
-                  borderRadius: 8,
-                  backgroundColor: timePeriod === period ? (tint as string) : 'transparent',
-                  borderWidth: timePeriod === period ? 0 : 1,
-                  borderColor: border as string,
-                  alignItems: 'center',
-                }}
-              >
-                <ThemedText style={{
-                  fontSize: 12,
-                  fontWeight: timePeriod === period ? '600' : '400',
-                  color: timePeriod === period ? '#ffffff' : (text as string),
-                }}>
-                  {period}
-                </ThemedText>
-              </Pressable>
-            ))}
+        <View style={{ 
+          paddingHorizontal: IS_SMALL_SCREEN ? 12 : 16, 
+          marginBottom: IS_SMALL_SCREEN ? 16 : 20 
+        }}>
+          <View style={{ flexDirection: 'row', gap: IS_SMALL_SCREEN ? 6 : 8 }}>
+            {(['24H', '1W', '1M', '1Y', 'MAX'] as TimePeriod[]).map((period) => {
+              const periodLabels: Record<TimePeriod, string> = {
+                '24H': '24S',
+                '1W': '1H',
+                '1M': '1A',
+                '1Y': '1Y',
+                'MAX': 'MAKS',
+              };
+              return (
+                <Pressable
+                  key={period}
+                  onPress={() => setTimePeriod(period)}
+                  style={{
+                    flex: 1,
+                    paddingVertical: IS_SMALL_SCREEN ? 6 : 8,
+                    paddingHorizontal: IS_SMALL_SCREEN ? 8 : 12,
+                    borderRadius: 8,
+                    backgroundColor: timePeriod === period ? (tint as string) : 'transparent',
+                    borderWidth: timePeriod === period ? 0 : 1,
+                    borderColor: border as string,
+                    alignItems: 'center',
+                  }}
+                >
+                  <ThemedText 
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.8}
+                    style={{
+                      fontSize: IS_SMALL_SCREEN ? 11 : 12,
+                      fontWeight: timePeriod === period ? '600' : '400',
+                      color: timePeriod === period ? '#ffffff' : (text as string),
+                    }}>
+                    {periodLabels[period]}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
 
-        {/* Holdings List */}
-        <View style={{ paddingHorizontal: 16 }}>
+        <View style={{ paddingHorizontal: IS_SMALL_SCREEN ? 12 : 16 }}>
           {holdings.length === 0 ? (
             <View style={{
               backgroundColor: cardBg as string,

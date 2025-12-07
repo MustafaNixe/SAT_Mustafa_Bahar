@@ -111,7 +111,7 @@ function startGlobalWebSocket() {
     };
 
     globalWS.onerror = (err) => {
-      console.error('WebSocket error:', err);
+      // WebSocket hataları sessizce handle ediliyor
     };
   } catch (err) {
     console.error('WebSocket connection error:', err);
@@ -166,6 +166,160 @@ export function closeAllWebSockets() {
     globalWS = null;
   }
   globalSubscribers.clear();
+}
+
+// Kline (Candlestick) Stream Types
+export type KlineUpdate = {
+  symbol: string;
+  interval: string;
+  openTime: number;
+  closeTime: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  isFinal: boolean; // true if candle is closed, false if still updating
+};
+
+type KlineStreamSubscriber = {
+  symbol: string;
+  interval: string;
+  callback: (update: KlineUpdate) => void;
+};
+
+// Per-symbol kline streams
+const klineStreams: Map<string, WebSocket> = new Map();
+const klineSubscribers: Map<string, Set<(update: KlineUpdate) => void>> = new Map();
+
+function getKlineStreamKey(symbol: string, interval: string): string {
+  return `${symbol.toLowerCase()}@kline_${interval}`;
+}
+
+function startKlineStream(symbol: string, interval: string): WebSocket | null {
+  const streamKey = getKlineStreamKey(symbol, interval);
+  
+  // Check if stream already exists
+  const existing = klineStreams.get(streamKey);
+  if (existing && (existing.readyState === WebSocket.OPEN || existing.readyState === WebSocket.CONNECTING)) {
+    return existing;
+  }
+
+  // Clean up old connection if exists
+  if (existing) {
+    try {
+      existing.onopen = null;
+      existing.onclose = null;
+      existing.onerror = null;
+      existing.onmessage = null;
+      existing.close();
+    } catch {}
+  }
+
+  try {
+    const ws = new WebSocket(`${MARKET_CONFIG.wsBase}/${streamKey}`);
+    
+    ws.onopen = () => {
+      // Connection opened
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data as string);
+        
+        // Binance kline stream format
+        if (data.k) {
+          const k = data.k;
+          const update: KlineUpdate = {
+            symbol: k.s,
+            interval: k.i,
+            openTime: k.t,
+            closeTime: k.T,
+            open: Number(k.o),
+            high: Number(k.h),
+            low: Number(k.l),
+            close: Number(k.c),
+            volume: Number(k.v),
+            isFinal: data.k.x, // x is true when candle is closed
+          };
+
+          // Notify all subscribers for this stream
+          const subscribers = klineSubscribers.get(streamKey);
+          if (subscribers) {
+            subscribers.forEach((callback) => {
+              try {
+                callback(update);
+              } catch (err) {
+                console.error('Kline subscriber callback error:', err);
+              }
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Kline stream parse error:', err);
+      }
+    };
+
+    ws.onclose = (event) => {
+      klineStreams.delete(streamKey);
+      
+      // Reconnect if not normal closure and has subscribers
+      if (event.code !== 1000 && klineSubscribers.has(streamKey) && klineSubscribers.get(streamKey)!.size > 0) {
+        setTimeout(() => {
+          if (klineSubscribers.has(streamKey) && klineSubscribers.get(streamKey)!.size > 0) {
+            startKlineStream(symbol, interval);
+          }
+        }, 2000);
+      }
+    };
+
+    ws.onerror = (err) => {
+      // Kline stream hataları sessizce handle ediliyor
+    };
+
+    klineStreams.set(streamKey, ws);
+    return ws;
+  } catch (err) {
+    console.error('Kline stream connection error:', err);
+    return null;
+  }
+}
+
+export function startKlineStreamSubscription(
+  symbol: string,
+  interval: '1m' | '3m' | '5m' | '15m' | '30m' | '1h' | '2h' | '4h' | '6h' | '8h' | '12h' | '1d' | '3d' | '1w' | '1M',
+  onUpdate: (update: KlineUpdate) => void
+): () => void {
+  const streamKey = getKlineStreamKey(symbol, interval);
+  
+  // Add subscriber
+  if (!klineSubscribers.has(streamKey)) {
+    klineSubscribers.set(streamKey, new Set());
+  }
+  klineSubscribers.get(streamKey)!.add(onUpdate);
+
+  // Start stream if not already running
+  startKlineStream(symbol, interval);
+
+  // Cleanup function
+  return () => {
+    const subscribers = klineSubscribers.get(streamKey);
+    if (subscribers) {
+      subscribers.delete(onUpdate);
+      
+      // If no more subscribers, close the stream
+      if (subscribers.size === 0) {
+        klineSubscribers.delete(streamKey);
+        const ws = klineStreams.get(streamKey);
+        if (ws) {
+          try {
+            ws.close(1000, 'No more subscribers');
+          } catch {}
+          klineStreams.delete(streamKey);
+        }
+      }
+    }
+  };
 }
 
 
