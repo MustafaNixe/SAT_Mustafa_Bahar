@@ -6,11 +6,6 @@ Bahar Coin, kullanıcıların kripto para yatırımlarını kolayca takip edebil
 
 Bu proje, mobil uygulama geliştirme dersi kapsamında hazırlanmıştır.
 
-🎯 Proje Amacı
-
-Kullanıcılara sade, şık ve anlaşılır bir arayüz sunarak, kripto varlıklarını tek bir ekrandan yönetebilme kolaylığı sağlamaktır.
-Uygulama, yatırımcıların portföy değerlerini, günlük değişim oranlarını ve toplam kazançlarını takip edebilmelerine olanak tanır.
-
  ⚙️ Geliştirici Bilgileri
 
 Öğrenci Adı: (Mustafa Bahar)
@@ -23,214 +18,67 @@ Ders: (Sistem Analizi ve Tasarımı)
 
 Dönem: (2025-2026 Güz Dönemi)
 
-# 📱 Coin Portfolio Mobile App
+# 🚀 Coin Portfolio — Real-Time Crypto Tracker & Portfolio Manager
 
 ![React Native](https://img.shields.io/badge/React%20Native-0.81-blue)
 ![Expo](https://img.shields.io/badge/Expo-SDK%2054-black)
+![TypeScript](https://img.shields.io/badge/TypeScript-Strict-informational)
 ![Node.js](https://img.shields.io/badge/Node.js-Express-green)
 ![Database](https://img.shields.io/badge/Database-MSSQL-red)
+![Auth](https://img.shields.io/badge/Auth-JWT%20%2B%20bcrypt-orange)
+![Realtime](https://img.shields.io/badge/Realtime-WebSocket-purple)
+![State](https://img.shields.io/badge/State-Zustand-yellow)
 ![License](https://img.shields.io/badge/License-Education-lightgrey)
 
+**Coin Portfolio**, Binance üzerinden **canlı fiyat akışı (WebSocket)** alarak coinleri takip etmeyi, detay ekranlarında **interaktif grafikler** göstermeyi ve kullanıcıların kendi **portföylerini yönetmesini** sağlayan bir **React Native (Expo)** uygulamasıdır.  
+Kullanıcı kayıt/giriş ve oturum yönetimi için ayrıca **Node.js + Express + MSSQL** tabanlı bir backend API içerir.
+
+> ✅ Hedef: “İstek atıp durmadan” canlı veri almak (WebSocket) + modern mobil mimari (Expo Router, Zustand, TypeScript).
 
 ---
 
-## 🚀 Temel Özellikler
+## ✨ Öne Çıkanlar
 
-- 🔴 Binance WebSocket ile **gerçek zamanlı fiyat verileri**
-- 📊 **Canlı ve interaktif grafikler** (Line, Candlestick, Bar)
-- 💼 **Coin portföy yönetimi**
-- 📈 Kar / zarar hesaplama
-- 🔐 **JWT tabanlı authentication**
-- 🌙 Dark / Light tema desteği
-- 📱 Tam responsive mobil tasarım
-- ⚡ API rate-limit sorunu olmadan canlı veri
+- 🔴 **Gerçek zamanlı fiyat güncellemeleri** (Binance WebSocket)
+- 📊 **Line / Candlestick / Bar** grafikler + canlı güncellenen mum verileri
+- 💼 Portföy yönetimi: coin ekle/sil/güncelle, toplam değer & PnL hesaplama
+- 🔐 **JWT tabanlı Authentication** + bcrypt hash + AsyncStorage ile oturum kalıcılığı
+- 🧭 **Expo Router** ile file-based navigation (modern routing)
+- 🌗 Light/Dark tema + responsive UI bileşenleri
+- 🧩 Katmanlı yapı: `services/` (data), `store/` (state), `components/` (UI)
 
 ---
 
-## 🧱 Kullanılan Teknolojiler
+## 🧱 Tech Stack
 
-### Frontend
-- React Native
-- Expo (SDK 54)
+### Mobile (Frontend)
+- React Native + Expo (SDK 54)
 - TypeScript
 - Zustand (State Management)
-- Expo Router (File-based navigation)
-- Axios
-- WebSocket
+- Expo Router (Navigation)
+- Axios (REST istekleri)
+- Native WebSocket (Realtime)
 
-### Backend
-- Node.js
-- Express.js
-- SQL Server (MSSQL)
+### Backend (API)
+- Node.js + Express.js
+- MSSQL (SQL Server)
 - JWT (jsonwebtoken)
-- bcrypt
+- bcrypt (şifreleme)
 
-### Dış Servisler
-- Binance REST API
-- Binance WebSocket API
-
----
-
-## 📂 Proje Dosya Yapısı
-
-
-coin/
-├── Api/
-│ ├── server.js
-│ ├── routes/
-│ │ └── authRoutes.js
-│ ├── controllers/
-│ │ └── authController.js
-│ ├── config/
-│ │ └── database.js
-│ ├── middleware/
-│ │ └── authMiddleware.js
-│ └── database.sql
-│
-├── app/
-│ ├── _layout.tsx
-│ ├── login.tsx
-│ ├── register.tsx
-│ ├── (tabs)/
-│ │ ├── index.tsx
-│ │ ├── explore.tsx
-│ │ ├── portfolio.tsx
-│ │ └── settings.tsx
-│ └── coin/
-│ └── [symbol].tsx
-│
-└── src/
-├── services/
-│ ├── binance.ts
-│ ├── realtime.ts
-│ └── market-config.ts
-├── store/
-│ ├── auth.ts
-│ ├── portfolio.ts
-│ └── settings.ts
-├── components/
-│ ├── charts/
-│ └── ui/
-└── hooks/
-
+### External Data
+- Binance REST API (history & metadata)
+- Binance WebSocket API (realtime)
 
 ---
 
-## 🔌 API Yapısı
-
-### Backend API (Kendi Sunucumuz)
-
-**Base URL**
-http://localhost:3001/api/auth
-
-
-Kodu kopyala
-
-| Method | Endpoint | Açıklama |
-|------|---------|---------|
-| POST | /users | Kullanıcı kayıt |
-| POST | /login | Kullanıcı giriş |
-| GET  | /users | Kullanıcı listesi |
-
----
-
-### Binance API
-
-**REST API**
-https://api.binance.com/api/v3
 
 
 
 
-Kullanılan endpointler:
-- `/ticker/price`
-- `/ticker/24hr`
-- `/klines`
-- `/exchangeInfo`
-
-**WebSocket**
-wss://stream.binance.com:9443/ws
 
 
 
 
----
-
-## 📊 Grafik Sistemi
-
-- Line Chart
-- Candlestick Chart
-- Portfolio Bar Chart
-- Zoom & Pan desteği
-- Gerçek zamanlı güncelleme
-
-**Grafik Dosyaları**
-src/components/charts/
-├── simple-chart.tsx
-├── candlestick-chart.tsx
-├── portfolio-chart.tsx
-└── sparkline.tsx
-
-
-
----
-
-## 🔐 Authentication Sistemi
-
-- JWT token tabanlı yapı
-- bcrypt ile şifre hashleme
-- AsyncStorage ile token saklama
-- Otomatik oturum kontrolü
-
-**İlgili Dosyalar**
-- `Api/controllers/authController.js`
-- `src/store/auth.ts`
-
----
-
-## ⚙️ Kurulum ve Çalıştırma
-
-### Backend Kurulumu
-```bash
-cd Api
-npm install
-npm start
-.env örneği:
-
-ini
-Kodu kopyala
-PORT=3001
-JWT_SECRET=secret_key
-DB_HOST=localhost
-DB_USER=sa
-DB_PASSWORD=******
-DB_NAME=CoinApp
-Frontend Kurulumu
-bash
-Kodu kopyala
-npm install
-npx expo start
-Android Emulator
-
-📝 Önemli Notlar
-Binance WebSocket kullanıldığı için rate limit sorunu yok
-
-Tek backend bağlantısı ile çoklu kullanıcı desteği
-
-Canlı grafikler anlık güncellenir
-
-Mobil-first geliştirme yaklaşımı
-
-Eğitim ve geliştirme amaçlı hazırlanmıştır
-
-📌 Lisans
-Bu proje eğitim amaçlıdır.
-Ticari kullanım için ek düzenlemeler gerektirir.
-
-👨‍💻 Geliştirici
-Mustafa
-Bilgisayar Programcılığı
-React Native • Node.js • API • Mobile Development
 
 
 
