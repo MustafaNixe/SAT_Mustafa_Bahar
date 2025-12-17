@@ -73,47 +73,46 @@ Dönem: (2025-2026 Güz Dönemi)
 
 ## 📂 Proje Dosya Yapısı
 
+
 coin/
-├── Api/ # Backend API
-│ ├── server.js # Express sunucu
+├── Api/
+│ ├── server.js
 │ ├── routes/
-│ │ └── authRoutes.js # Auth route'ları
+│ │ └── authRoutes.js
 │ ├── controllers/
-│ │ └── authController.js # Auth iş mantığı
+│ │ └── authController.js
 │ ├── config/
-│ │ └── database.js # DB bağlantısı
+│ │ └── database.js
 │ ├── middleware/
-│ │ └── authMiddleware.js # JWT middleware
-│ └── database.sql # Veritabanı şeması
+│ │ └── authMiddleware.js
+│ └── database.sql
 │
-├── app/ # React Native sayfaları
-│ ├── _layout.tsx # Root layout
-│ ├── login.tsx # Giriş ekranı
-│ ├── register.tsx # Kayıt ekranı
-│ ├── (tabs)/ # Tab navigation
-│ │ ├── index.tsx # Ana sayfa
-│ │ ├── explore.tsx # Coin keşfet
-│ │ ├── portfolio.tsx # Portföy
-│ │ └── settings.tsx # Ayarlar
+├── app/
+│ ├── _layout.tsx
+│ ├── login.tsx
+│ ├── register.tsx
+│ ├── (tabs)/
+│ │ ├── index.tsx
+│ │ ├── explore.tsx
+│ │ ├── portfolio.tsx
+│ │ └── settings.tsx
 │ └── coin/
-│ └── [symbol].tsx # Coin detay sayfası
+│ └── [symbol].tsx
 │
 └── src/
-├── services/ # API servisleri
-│ ├── binance.ts # Binance REST API
-│ ├── realtime.ts # Binance WebSocket
+├── services/
+│ ├── binance.ts
+│ ├── realtime.ts
 │ └── market-config.ts
-├── store/ # Zustand store'lar
-│ ├── auth.ts # Authentication state
-│ ├── portfolio.ts # Portföy state
+├── store/
+│ ├── auth.ts
+│ ├── portfolio.ts
 │ └── settings.ts
 ├── components/
-│ ├── charts/ # Grafik bileşenleri
-│ └── ui/ # UI bileşenleri
-└── hooks/ # Custom hooks
+│ ├── charts/
+│ └── ui/
+└── hooks/
 
-yaml
-Kodu kopyala
 
 ---
 
@@ -124,7 +123,7 @@ Kodu kopyala
 **Base URL**
 http://localhost:3001/api/auth
 
-yaml
+
 Kodu kopyala
 
 | Method | Endpoint | Açıklama |
@@ -140,8 +139,8 @@ Kodu kopyala
 **REST API**
 https://api.binance.com/api/v3
 
-markdown
-Kodu kopyala
+
+
 
 Kullanılan endpointler:
 - `/ticker/price`
@@ -152,8 +151,8 @@ Kullanılan endpointler:
 **WebSocket**
 wss://stream.binance.com:9443/ws
 
-yaml
-Kodu kopyala
+
+
 
 ---
 
@@ -172,8 +171,7 @@ src/components/charts/
 ├── portfolio-chart.tsx
 └── sparkline.tsx
 
-yaml
-Kodu kopyala
+
 
 ---
 
@@ -214,14 +212,6 @@ npm install
 npx expo start
 Android Emulator
 
-cpp
-Kodu kopyala
-http://10.0.2.2:3001
-Gerçek cihaz
-
-cpp
-Kodu kopyala
-http://BILGISAYAR_IP:3001
 📝 Önemli Notlar
 Binance WebSocket kullanıldığı için rate limit sorunu yok
 
@@ -242,17 +232,5 @@ Mustafa
 Bilgisayar Programcılığı
 React Native • Node.js • API • Mobile Development
 
-yaml
-Kodu kopyala
-
----
-
-İstersen sonraki adımda 🔥  
-- README’ye **ekran görüntüsü** ekleyelim  
-- Repo için **hocaya özel kısa README** yapalım  
-- **Docker + docker-compose** ekleyelim  
-- GitHub için **star/fork badge** özelleştireyim  
-
-Söyle, devam edelim 👌 
 
 
