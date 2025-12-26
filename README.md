@@ -36,10 +36,9 @@ Kullanıcı kayıt/giriş ve oturum yönetimi için ayrıca **Node.js + Express 
 > ✅ Hedef: “İstek atıp durmadan” canlı veri almak (WebSocket) + modern mobil mimari (Expo Router, Zustand, TypeScript).
 
 --- 
-
-
-![Uploading video5915964120460434442.gif…]()
-
+<p align="center">
+  <img src="./assets/auth-preview.gif" alt="Bahar Coin App Authentication Screen" width="420"/>
+</p>
 
 
 
