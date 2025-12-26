@@ -40,9 +40,8 @@ Kullanıcı kayıt/giriş ve oturum yönetimi için ayrıca **Node.js + Express 
 # 🚀 Coin Portfolio & Real-Time Crypto Market Platform
 
 <p align="center">
-  <img src="./assets/images/video5915964120460434442.gif" alt="App Demo" width="420">
+  <img src="./coin/assets/images/video5915964120460434442.gif" alt="App Demo" width="420">
 </p>
->
 
 <p align="center">
   <strong>Kullanıcı kayıt ve giriş ekranı</strong>
