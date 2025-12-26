@@ -40,7 +40,7 @@ Kullanıcı kayıt/giriş ve oturum yönetimi için ayrıca **Node.js + Express 
 # 🚀 Coin Portfolio & Real-Time Crypto Market Platform
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/MustafaNixe/SAT_Mustafa_Bahar/main/coin/assets/images/video5915964120460434442.gif" alt="App Demo" width="420">
+  <img src="https://raw.githubusercontent.com/MustafaNixe/SAT_Mustafa_Bahar/main/coin/assets/images/video5915964120460434442.gif" alt="App Demo" width="300">
 </p>
 >
 
