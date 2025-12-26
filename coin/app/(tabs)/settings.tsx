@@ -1,18 +1,18 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Pressable, View, ScrollView, Switch, Alert, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, TouchableOpacity, Dimensions } from 'react-native';
-import { ThemedText } from '@/components/themed-text';
+import { ThemedText } from '@/components/ui/themed-text';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_SMALL_SCREEN = SCREEN_WIDTH < 375;
 const IS_MEDIUM_SCREEN = SCREEN_WIDTH >= 375 && SCREEN_WIDTH < 414;
-import { ThemedView } from '@/components/themed-view';
+import { ThemedView } from '@/components/ui/themed-view';
 import { Card } from '@/components/ui/card';
 import { useThemeStore } from '@/store/theme';
 import { useSettingsStore } from '@/store/settings';
 import { useAuthStore } from '@/store/auth';
 import { usePortfolioStore } from '@/store/portfolio';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { CoinAvatar } from '@/components/coin-avatar';
+import { CoinAvatar } from '@/components/ui/coin-avatar';
 import { fetch24hTickersUSDT } from '@/services/binance';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -123,6 +123,7 @@ export default function SettingsScreen() {
     );
   };
 
+
   useEffect(() => {
     if (!showAddModal) return;
     let active = true;
@@ -225,8 +226,15 @@ export default function SettingsScreen() {
           text: 'Çıkış Yap',
           style: 'destructive',
           onPress: async () => {
-            await logout();
-            router.replace('/login');
+            try {
+              await logout();
+              setTimeout(() => {
+                router.replace('/login');
+              }, 200);
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Hata', 'Çıkış yapılırken bir hata oluştu');
+            }
           },
         },
       ]
@@ -239,7 +247,7 @@ export default function SettingsScreen() {
         style={{ flex: 1 }} 
         contentContainerStyle={{ 
           padding: IS_SMALL_SCREEN ? 12 : 16, 
-          paddingBottom: IS_SMALL_SCREEN ? 24 : 32 
+          paddingBottom: 100
         }}
         showsVerticalScrollIndicator={false}
       >
@@ -380,157 +388,8 @@ export default function SettingsScreen() {
               </Pressable>
             ))}
           </View>
-        </Card>
 
-        <Card style={{ marginBottom: IS_SMALL_SCREEN ? 12 : 16 }}>
-          <View style={{ 
-            flexDirection: 'row', 
-            alignItems: 'center', 
-            marginBottom: IS_SMALL_SCREEN ? 12 : 16 
-          }}>
-            <MaterialCommunityIcons 
-              name="currency-usd" 
-              size={IS_SMALL_SCREEN ? 20 : 24} 
-              color={tint as string} 
-              style={{ marginRight: IS_SMALL_SCREEN ? 10 : 12 }} 
-            />
-            <ThemedText type="subtitle">Para Birimi</ThemedText>
-          </View>
-          <View style={{ gap: 8 }}>
-            {currencies.map((curr) => (
-              <Pressable
-                key={curr.value}
-                onPress={() => setCurrency(curr.value)}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  paddingVertical: 12,
-                  paddingHorizontal: 12,
-                  borderRadius: 8,
-                  backgroundColor: currency === curr.value ? cardBg as string : 'transparent',
-                  borderWidth: currency === curr.value ? 1 : 0,
-                  borderColor: tint as string,
-                  opacity: currency === curr.value ? 1 : 0.8,
-                }}
-              >
-                <ThemedText style={{ fontSize: 15 }}>{curr.label}</ThemedText>
-                {currency === curr.value && (
-                  <MaterialCommunityIcons name="check-circle" size={20} color={tint as string} />
-                )}
-              </Pressable>
-            ))}
-          </View>
         </Card>
-
-        <Card style={{ marginBottom: IS_SMALL_SCREEN ? 12 : 16 }}>
-          <View style={{ 
-            flexDirection: 'row', 
-            alignItems: 'center', 
-            marginBottom: IS_SMALL_SCREEN ? 12 : 16 
-          }}>
-            <MaterialCommunityIcons 
-              name="bell-outline" 
-              size={IS_SMALL_SCREEN ? 20 : 24} 
-              color={tint as string} 
-              style={{ marginRight: IS_SMALL_SCREEN ? 10 : 12 }} 
-            />
-            <ThemedText type="subtitle">Bildirimler</ThemedText>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
-            <View style={{ flex: 1 }}>
-              <ThemedText style={{ fontSize: 15, marginBottom: 4 }}>Bildirimleri Etkinleştir</ThemedText>
-              <ThemedText style={{ fontSize: 12, opacity: 0.7 }}>
-                Fiyat değişiklikleri ve güncellemeler hakkında bildirim alın
-              </ThemedText>
-            </View>
-            <Switch
-              value={notificationsEnabled}
-              onValueChange={setNotificationsEnabled}
-              trackColor={{ false: muted as string, true: tint as string }}
-              thumbColor="#fff"
-            />
-          </View>
-          <View style={{ height: 1, backgroundColor: border as string, marginVertical: 12, opacity: 0.3 }} />
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
-            <View style={{ flex: 1 }}>
-              <ThemedText style={{ fontSize: 15, marginBottom: 4 }}>Fiyat Uyarıları</ThemedText>
-              <ThemedText style={{ fontSize: 12, opacity: 0.7 }}>
-                Belirlediğiniz fiyat seviyelerine ulaşıldığında bildirim alın
-              </ThemedText>
-            </View>
-            <Switch
-              value={priceAlertsEnabled}
-              onValueChange={setPriceAlertsEnabled}
-              trackColor={{ false: muted as string, true: tint as string }}
-              thumbColor="#fff"
-              disabled={!notificationsEnabled}
-            />
-          </View>
-        </Card>
-
-        <Card style={{ marginBottom: IS_SMALL_SCREEN ? 12 : 16 }}>
-          <View style={{ 
-            flexDirection: 'row', 
-            alignItems: 'center', 
-            marginBottom: IS_SMALL_SCREEN ? 12 : 16 
-          }}>
-            <MaterialCommunityIcons 
-              name="tune" 
-              size={IS_SMALL_SCREEN ? 20 : 24} 
-              color={tint as string} 
-              style={{ marginRight: IS_SMALL_SCREEN ? 10 : 12 }} 
-            />
-            <ThemedText type="subtitle">Gelişmiş</ThemedText>
-          </View>
-          <View style={{ gap: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
-              <View style={{ flex: 1 }}>
-                <ThemedText style={{ fontSize: 15, marginBottom: 4 }}>Haptik Geri Bildirim</ThemedText>
-                <ThemedText style={{ fontSize: 12, opacity: 0.7 }}>
-                  Dokunma geri bildirimlerini etkinleştir
-                </ThemedText>
-              </View>
-              <Switch
-                value={hapticFeedback}
-                onValueChange={setHapticFeedback}
-                trackColor={{ false: muted as string, true: tint as string }}
-                thumbColor="#fff"
-              />
-            </View>
-            <View style={{ height: 1, backgroundColor: border as string, opacity: 0.3 }} />
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
-              <View style={{ flex: 1 }}>
-                <ThemedText style={{ fontSize: 15, marginBottom: 4 }}>Ses Efektleri</ThemedText>
-                <ThemedText style={{ fontSize: 12, opacity: 0.7 }}>
-                  Bildirim ve işlem seslerini etkinleştir
-                </ThemedText>
-              </View>
-              <Switch
-                value={soundEnabled}
-                onValueChange={setSoundEnabled}
-                trackColor={{ false: muted as string, true: tint as string }}
-                thumbColor="#fff"
-              />
-            </View>
-            <View style={{ height: 1, backgroundColor: border as string, opacity: 0.3 }} />
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
-              <View style={{ flex: 1 }}>
-                <ThemedText style={{ fontSize: 15, marginBottom: 4 }}>Veri Tasarrufu Modu</ThemedText>
-                <ThemedText style={{ fontSize: 12, opacity: 0.7 }}>
-                  Daha az veri kullanımı için grafik ve görselleri sınırla
-                </ThemedText>
-              </View>
-              <Switch
-                value={dataSaverMode}
-                onValueChange={setDataSaverMode}
-                trackColor={{ false: muted as string, true: tint as string }}
-                thumbColor="#fff"
-              />
-            </View>
-          </View>
-        </Card>
-
         <Card style={{ marginBottom: IS_SMALL_SCREEN ? 12 : 16 }}>
           <View style={{ 
             flexDirection: 'row', 
@@ -903,56 +762,6 @@ export default function SettingsScreen() {
             </View>
           </View>
         </Card>
-
-        <Card style={{ marginBottom: 16 }}>
-          <View style={{ gap: 12 }}>
-            <Pressable
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                paddingVertical: 12,
-              }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                <MaterialCommunityIcons name="shield-check-outline" size={20} color={text as string} style={{ marginRight: 12, opacity: 0.7 }} />
-                <ThemedText style={{ fontSize: 15 }}>Gizlilik Politikası</ThemedText>
-              </View>
-              <MaterialCommunityIcons name="chevron-right" size={20} color={text as string} style={{ opacity: 0.5 }} />
-            </Pressable>
-            <View style={{ height: 1, backgroundColor: border as string, opacity: 0.3 }} />
-            <Pressable
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                paddingVertical: 12,
-              }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                <MaterialCommunityIcons name="file-document-outline" size={20} color={text as string} style={{ marginRight: 12, opacity: 0.7 }} />
-                <ThemedText style={{ fontSize: 15 }}>Kullanım Koşulları</ThemedText>
-              </View>
-              <MaterialCommunityIcons name="chevron-right" size={20} color={text as string} style={{ opacity: 0.5 }} />
-            </Pressable>
-            <View style={{ height: 1, backgroundColor: border as string, opacity: 0.3 }} />
-            <Pressable
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                paddingVertical: 12,
-              }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                <MaterialCommunityIcons name="help-circle-outline" size={20} color={text as string} style={{ marginRight: 12, opacity: 0.7 }} />
-                <ThemedText style={{ fontSize: 15 }}>Yardım & Destek</ThemedText>
-              </View>
-              <MaterialCommunityIcons name="chevron-right" size={20} color={text as string} style={{ opacity: 0.5 }} />
-            </Pressable>
-          </View>
-        </Card>
-
         <Card>
           <Pressable
             onPress={handleLogout}

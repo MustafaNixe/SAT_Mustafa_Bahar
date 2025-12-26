@@ -5,14 +5,14 @@ import { Link } from 'expo-router';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_SMALL_SCREEN = SCREEN_WIDTH < 375;
 const IS_MEDIUM_SCREEN = SCREEN_WIDTH >= 375 && SCREEN_WIDTH < 414;
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { ThemedText } from '@/components/ui/themed-text';
+import { ThemedView } from '@/components/ui/themed-view';
 import { usePortfolioStore, calculateTotals } from '@/store/portfolio';
 import { fetchAllUSDTPrices, fetchKlines, fetch24hTickersUSDT } from '@/services/binance';
 import { startUSDTSpotMiniTicker } from '@/services/realtime';
-import { CoinAvatar } from '@/components/coin-avatar';
-import { SimpleChart } from '@/components/simple-chart';
-import { PortfolioChart } from '@/components/portfolio-chart';
+import { CoinAvatar } from '@/components/ui/coin-avatar';
+import { SimpleChart } from '@/components/charts/simple-chart';
+import { PortfolioChart } from '@/components/charts/portfolio-chart';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -30,6 +30,7 @@ export default function PortfolioScreen() {
   const [chartData, setChartData] = useState<{ x: number; y: number; date?: string; isInvestment?: boolean }[]>([]);
   const [loadingChart, setLoadingChart] = useState(false);
   const [coinSearchQuery, setCoinSearchQuery] = useState('');
+  const [selectedCoinSymbol, setSelectedCoinSymbol] = useState<string | null>(null);
   const [availableCoins, setAvailableCoins] = useState<Record<string, { price: number; changePct: number; volumeQ?: number }>>({});
   const [loadingCoins, setLoadingCoins] = useState(false);
 
@@ -84,7 +85,7 @@ export default function PortfolioScreen() {
           'MAX': { interval: '1w', limit: 104 },
         };
         const params = intervalMap[timePeriod];
-        const points: { x: number; y: number }[] = [];
+        const points: { x: number; y: number; date?: string; isInvestment?: boolean }[] = [];
         
         // Get unique symbols to fetch klines in parallel
         const uniqueSymbols = Array.from(new Set(items.map(item => item.symbol)));
@@ -269,6 +270,38 @@ export default function PortfolioScreen() {
     }).sort((a, b) => b.currentValue - a.currentValue);
   }, [items, prices]);
 
+  const getColorForSymbol = useCallback((symbol: string) => {
+    let hash = 0;
+    for (let i = 0; i < symbol.length; i++) {
+      hash = symbol.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash) % 360;
+    return `hsl(${hue}, 68%, 55%)`;
+  }, []);
+
+  const distribution = useMemo(() => {
+    if (!holdings.length || totals.current <= 0) return [];
+    return holdings
+      .map((h) => ({
+        symbol: h.symbol,
+        name: h.symbol.replace('USDT', ''),
+        value: h.currentValue,
+        percent: (h.currentValue / totals.current) * 100,
+        color: getColorForSymbol(h.symbol),
+      }))
+      .sort((a, b) => b.value - a.value);
+  }, [holdings, totals.current, getColorForSymbol]);
+
+  const periodSummary = useMemo(() => {
+    if (!chartData || chartData.length < 2) return null;
+    const first = chartData[0]?.y ?? 0;
+    const last = chartData[chartData.length - 1]?.y ?? 0;
+    if (first <= 0 || last <= 0) return null;
+    const change = last - first;
+    const changePct = (change / first) * 100;
+    return { change, changePct };
+  }, [chartData]);
+
   // Load available coins when modal opens
   useEffect(() => {
     if (!showAddModal) return;
@@ -317,6 +350,7 @@ export default function PortfolioScreen() {
       buy: currentPrice.toFixed(4),
     });
     setCoinSearchQuery('');
+    setSelectedCoinSymbol(symbol);
   }, []);
 
   const onAdd = () => {
@@ -460,24 +494,39 @@ export default function PortfolioScreen() {
 
   return (
     <ThemedView style={{ flex: 1 }} safe edges={['top']}>
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={{ flex: 1 }} 
+        contentContainerStyle={{ paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header - Portfolio Value Card */}
         <View style={{ 
           paddingHorizontal: IS_SMALL_SCREEN ? 12 : 16, 
           paddingTop: IS_SMALL_SCREEN ? 12 : 16, 
           paddingBottom: IS_SMALL_SCREEN ? 10 : 12 
         }}>
-          <View style={{
-            backgroundColor: cardBg as string,
-            borderRadius: 16,
-            padding: IS_SMALL_SCREEN ? 16 : 20,
-            marginBottom: IS_SMALL_SCREEN ? 12 : 16,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 8,
-            elevation: 3,
-          }}>
+          <View style={[
+            {
+              backgroundColor: cardBg as string,
+              borderRadius: 16,
+              padding: IS_SMALL_SCREEN ? 16 : 20,
+              marginBottom: IS_SMALL_SCREEN ? 12 : 16,
+            },
+            Platform.select({
+              ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+              },
+              android: {
+                elevation: 3,
+              },
+              web: {
+                boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.1)',
+              },
+            }),
+          ]}>
             <ThemedText style={{ 
               fontSize: IS_SMALL_SCREEN ? 12 : 13, 
               opacity: 0.7, 
@@ -523,18 +572,30 @@ export default function PortfolioScreen() {
           paddingHorizontal: IS_SMALL_SCREEN ? 12 : 16, 
           marginBottom: IS_SMALL_SCREEN ? 12 : 16 
         }}>
-          <View style={{
-            height: IS_SMALL_SCREEN ? 240 : 280,
-            backgroundColor: cardBg as string,
-            borderRadius: 16,
-            padding: IS_SMALL_SCREEN ? 12 : 16,
-            overflow: 'hidden',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 8,
-            elevation: 3,
-          }}>
+          <View style={[
+            {
+              height: IS_SMALL_SCREEN ? 240 : 280,
+              backgroundColor: cardBg as string,
+              borderRadius: 16,
+              padding: IS_SMALL_SCREEN ? 12 : 16,
+              overflow: 'hidden',
+              position: 'relative',
+            },
+            Platform.select({
+              ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+              },
+              android: {
+                elevation: 3,
+              },
+              web: {
+                boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.1)',
+              },
+            }),
+          ]}>
             {loadingChart ? (
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                 <ThemedText style={{ opacity: 0.6, fontSize: IS_SMALL_SCREEN ? 12 : 14 }}>Grafik yükleniyor...</ThemedText>
@@ -553,6 +614,71 @@ export default function PortfolioScreen() {
             ) : (
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                 <ThemedText style={{ opacity: 0.6, fontSize: IS_SMALL_SCREEN ? 12 : 14 }}>Grafik verisi yok</ThemedText>
+              </View>
+            )}
+
+            {periodSummary && (
+              <View style={{
+                position: 'absolute',
+                top: IS_SMALL_SCREEN ? 10 : 12,
+                right: IS_SMALL_SCREEN ? 10 : 12,
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                paddingHorizontal: IS_SMALL_SCREEN ? 10 : 12,
+                paddingVertical: IS_SMALL_SCREEN ? 6 : 7,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: periodSummary.change >= 0 ? (success as string) : (danger as string),
+                borderColorOpacity: 0.3,
+              }}>
+                <ThemedText style={{ 
+                  fontSize: IS_SMALL_SCREEN ? 11 : 12, 
+                  opacity: 0.8,
+                  marginBottom: 2
+                }}>
+                  {timePeriod} Değişim
+                </ThemedText>
+                <ThemedText style={{ 
+                  fontSize: IS_SMALL_SCREEN ? 12 : 13, 
+                  fontWeight: '700',
+                  color: periodSummary.change >= 0 ? success as string : danger as string
+                }}>
+                  {periodSummary.change >= 0 ? '+' : ''}${periodSummary.change.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </ThemedText>
+                <ThemedText style={{ 
+                  fontSize: IS_SMALL_SCREEN ? 11 : 12, 
+                  color: periodSummary.change >= 0 ? success as string : danger as string,
+                  opacity: 0.9
+                }}>
+                  ({periodSummary.change >= 0 ? '+' : ''}{periodSummary.changePct.toFixed(2)}%)
+                </ThemedText>
+              </View>
+            )}
+            {totals.invested > 0 && (
+              <View style={{
+                position: 'absolute',
+                bottom: IS_SMALL_SCREEN ? 10 : 12,
+                left: IS_SMALL_SCREEN ? 10 : 12,
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                paddingHorizontal: IS_SMALL_SCREEN ? 8 : 10,
+                paddingVertical: IS_SMALL_SCREEN ? 5 : 6,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: 'rgba(156, 163, 175, 0.3)',
+              }}>
+                <ThemedText style={{ 
+                  fontSize: IS_SMALL_SCREEN ? 9 : 10, 
+                  opacity: 0.7,
+                  marginBottom: 2
+                }}>
+                  Toplam Yatırım
+                </ThemedText>
+                <ThemedText style={{ 
+                  fontSize: IS_SMALL_SCREEN ? 11 : 12, 
+                  fontWeight: '600',
+                  color: '#9ca3af'
+                }}>
+                  ${totals.invested.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </ThemedText>
               </View>
             )}
           </View>
@@ -603,6 +729,94 @@ export default function PortfolioScreen() {
           </View>
         </View>
 
+
+        {/* Add Coin Button */}
+        <View style={{ paddingHorizontal: IS_SMALL_SCREEN ? 12 : 16, marginBottom: IS_SMALL_SCREEN ? 12 : 14 }}>
+          <Pressable
+            onPress={() => setShowAddModal(true)}
+            style={{
+              backgroundColor: tint as string,
+              paddingVertical: IS_SMALL_SCREEN ? 14 : 16,
+              borderRadius: 12,
+              alignItems: 'center',
+            }}
+          >
+            <ThemedText style={{ color: '#ffffff', fontSize: 16, fontWeight: '600' }}>
+              + Coin Ekle
+            </ThemedText>
+          </Pressable>
+        </View>
+
+        {distribution.length > 0 && (
+          <View style={{ paddingHorizontal: IS_SMALL_SCREEN ? 12 : 16, marginBottom: IS_SMALL_SCREEN ? 14 : 16 }}>
+            <View style={{
+              backgroundColor: cardBg as string,
+              borderRadius: 12,
+              padding: IS_SMALL_SCREEN ? 12 : 14,
+              borderWidth: 1,
+              borderColor: border as string,
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: IS_SMALL_SCREEN ? 8 : 10, justifyContent: 'space-between' }}>
+                <ThemedText style={{ fontWeight: '700', fontSize: IS_SMALL_SCREEN ? 13 : 14 }}>Portföy Dağılımı</ThemedText>
+                <ThemedText style={{ opacity: 0.6, fontSize: IS_SMALL_SCREEN ? 11 : 12 }}>
+                  {distribution.length} varlık
+                </ThemedText>
+              </View>
+
+              {/* Stacked bar */}
+              <View style={{
+                height: IS_SMALL_SCREEN ? 16 : 18,
+                borderRadius: 10,
+                overflow: 'hidden',
+                backgroundColor: 'rgba(255,255,255,0.07)',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.16)',
+                marginBottom: IS_SMALL_SCREEN ? 10 : 12
+              }}>
+                <View style={{ flexDirection: 'row', width: '100%', height: '100%' }}>
+                  {distribution.map((item) => (
+                    <View
+                      key={item.symbol}
+                      style={{
+                        width: `${Math.min(100, Math.max(0, item.percent))}%`,
+                        backgroundColor: item.color,
+                        height: '100%',
+                      }}
+                    />
+                  ))}
+                </View>
+              </View>
+
+              {/* Legend (ilk 5) */}
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: IS_SMALL_SCREEN ? 8 : 10 }}>
+                {distribution.slice(0, 5).map((item) => (
+                  <View key={item.symbol} style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: IS_SMALL_SCREEN ? 8 : 10,
+                    paddingVertical: IS_SMALL_SCREEN ? 6 : 7,
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: border as string,
+                    backgroundColor: `hsla(${item.color.replace('hsl(', '').replace(')', '')}, 0.15)`,
+                  }}>
+                    <View style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: 6,
+                      backgroundColor: item.color,
+                      marginRight: 6,
+                    }} />
+                    <ThemedText style={{ fontSize: IS_SMALL_SCREEN ? 12 : 13, fontWeight: '600' }}>
+                      {item.name} {item.percent.toFixed(1)}%
+                    </ThemedText>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+        )}
+
         <View style={{ paddingHorizontal: IS_SMALL_SCREEN ? 12 : 16 }}>
           {holdings.length === 0 ? (
             <View style={{
@@ -622,23 +836,6 @@ export default function PortfolioScreen() {
               ))}
             </View>
           )}
-        </View>
-
-        {/* Add Coin Button */}
-        <View style={{ padding: 16, paddingBottom: 32 }}>
-          <Pressable
-            onPress={() => setShowAddModal(true)}
-            style={{
-              backgroundColor: tint as string,
-              paddingVertical: 16,
-              borderRadius: 12,
-              alignItems: 'center',
-            }}
-          >
-            <ThemedText style={{ color: '#ffffff', fontSize: 16, fontWeight: '600' }}>
-              + Coin Ekle
-            </ThemedText>
-          </Pressable>
         </View>
       </ScrollView>
 
@@ -717,6 +914,7 @@ export default function PortfolioScreen() {
                 >
                   {filteredCoins.map((item, index) => {
                     const coinName = item.symbol.replace('USDT', '');
+                const isSelected = selectedCoinSymbol === item.symbol;
                     return (
                       <View key={item.symbol}>
                         <Pressable
@@ -726,6 +924,9 @@ export default function PortfolioScreen() {
                             alignItems: 'center',
                             paddingVertical: 12,
                             paddingHorizontal: 16,
+                        backgroundColor: isSelected ? `${tint}22` : 'transparent',
+                        borderWidth: 1,
+                        borderColor: isSelected ? tint as string : border as string,
                           }}
                         >
                           <CoinAvatar symbol={item.symbol} size={32} />
@@ -737,7 +938,7 @@ export default function PortfolioScreen() {
                               ${item.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
                             </ThemedText>
                           </View>
-                          <View style={{ alignItems: 'flex-end' }}>
+                      <View style={{ alignItems: 'flex-end' }}>
                             <ThemedText style={{ 
                               fontSize: 12, 
                               color: item.changePct >= 0 ? (success as string) : (danger as string),

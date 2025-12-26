@@ -1,11 +1,16 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, TextInput, Pressable, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { useAuthStore } from '@/store/auth';
+  import { ThemedText } from '@/components/ui/themed-text';
+import { ThemedView } from '@/components/ui/themed-view';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { router } from 'expo-router';
+import { useAuthStore } from '@/store/auth';
+import { BaharLogo } from '@/components/common/bahar-logo';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { router } from 'expo-router';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, View, Dimensions, ScrollView } from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const IS_SMALL_SCREEN = SCREEN_WIDTH < 375;
+const IS_MEDIUM_SCREEN = SCREEN_WIDTH >= 375 && SCREEN_WIDTH < 414;
 
 export default function RegisterScreen() {
   const [username, setUsername] = useState('');
@@ -26,7 +31,6 @@ export default function RegisterScreen() {
   const muted = useThemeColor({}, 'muted');
 
   const handleRegister = async () => {
-    // Validation
     if (!username.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
       Alert.alert('Hata', 'Lütfen tüm alanları doldurunuz');
       return;
@@ -85,20 +89,27 @@ export default function RegisterScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.content}>
-            {/* Logo/Icon */}
-            <View style={styles.iconContainer}>
-              <MaterialCommunityIcons name="account-plus" size={64} color={tint as string} />
+            <View style={styles.logoContainer}>
+              <BaharLogo size={IS_SMALL_SCREEN ? 140 : IS_MEDIUM_SCREEN ? 160 : 180} color="#16a34a" />
             </View>
 
-            {/* Title */}
-            <ThemedText type="title" style={styles.title}>Hesap Oluştur</ThemedText>
-            <ThemedText style={styles.subtitle}>
+            <ThemedText 
+              type="title" 
+              style={[
+                styles.title,
+                { fontSize: IS_SMALL_SCREEN ? 24 : IS_MEDIUM_SCREEN ? 28 : 32 }
+              ]}
+            >
+              Hesap Oluştur
+            </ThemedText>
+            <ThemedText style={[
+              styles.subtitle,
+              { fontSize: IS_SMALL_SCREEN ? 13 : 14 }
+            ]}>
               Coin portföyünüzü yönetmek için hesap oluşturun
             </ThemedText>
-
-            {/* Form */}
+            
             <View style={styles.form}>
-              {/* Username Input */}
               <View style={styles.inputContainer}>
                 <MaterialCommunityIcons 
                   name="account-outline" 
@@ -118,7 +129,6 @@ export default function RegisterScreen() {
                 />
               </View>
 
-              {/* Email Input */}
               <View style={styles.inputContainer}>
                 <MaterialCommunityIcons 
                   name="email-outline" 
@@ -139,7 +149,6 @@ export default function RegisterScreen() {
                 />
               </View>
 
-              {/* Password Input */}
               <View style={styles.inputContainer}>
                 <MaterialCommunityIcons 
                   name="lock-outline" 
@@ -170,7 +179,6 @@ export default function RegisterScreen() {
                 </Pressable>
               </View>
 
-              {/* Confirm Password Input */}
               <View style={styles.inputContainer}>
                 <MaterialCommunityIcons 
                   name="lock-check-outline" 
@@ -201,7 +209,6 @@ export default function RegisterScreen() {
                 </Pressable>
               </View>
 
-              {/* Register Button */}
               <Pressable
                 style={[
                   styles.button,
@@ -218,10 +225,9 @@ export default function RegisterScreen() {
                 )}
               </Pressable>
 
-              {/* Login Link */}
               <View style={styles.loginContainer}>
                 <ThemedText style={styles.loginText}>Zaten hesabınız var mı? </ThemedText>
-                <Pressable onPress={() => router.push('/login')} disabled={loading}>
+                <Pressable onPress={() => router.replace('/login')} disabled={loading}>
                   <ThemedText style={[styles.loginLink, { color: tint as string }]}>
                     Giriş Yap
                   </ThemedText>
@@ -248,22 +254,23 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+    paddingHorizontal: IS_SMALL_SCREEN ? 20 : 24,
+    paddingVertical: IS_SMALL_SCREEN ? 24 : 32,
   },
-  iconContainer: {
+  logoContainer: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: IS_SMALL_SCREEN ? 24 : 32,
+    paddingVertical: IS_SMALL_SCREEN ? 16 : 20,
   },
   title: {
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: IS_SMALL_SCREEN ? 6 : 8,
   },
   subtitle: {
     textAlign: 'center',
     opacity: 0.7,
-    marginBottom: 48,
-    fontSize: 14,
+    marginBottom: IS_SMALL_SCREEN ? 32 : 48,
+    fontSize: IS_SMALL_SCREEN ? 13 : 14,
   },
   form: {
     width: '100%',
@@ -271,42 +278,42 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: IS_SMALL_SCREEN ? 12 : 16,
     position: 'relative',
   },
   inputIcon: {
     position: 'absolute',
-    left: 16,
+    left: IS_SMALL_SCREEN ? 12 : 16,
     zIndex: 1,
   },
   input: {
     flex: 1,
-    height: 52,
+    height: IS_SMALL_SCREEN ? 48 : 52,
     borderWidth: 1,
     borderRadius: 12,
-    paddingHorizontal: 48,
-    fontSize: 16,
+    paddingHorizontal: IS_SMALL_SCREEN ? 44 : 48,
+    fontSize: IS_SMALL_SCREEN ? 14 : 16,
   },
   eyeIcon: {
     position: 'absolute',
-    right: 16,
+    right: IS_SMALL_SCREEN ? 12 : 16,
     zIndex: 1,
     padding: 4,
   },
   button: {
-    height: 52,
+    height: IS_SMALL_SCREEN ? 48 : 52,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 24,
+    marginTop: IS_SMALL_SCREEN ? 6 : 8,
+    marginBottom: IS_SMALL_SCREEN ? 20 : 24,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
     color: '#ffffff',
-    fontSize: 16,
+    fontSize: IS_SMALL_SCREEN ? 14 : 16,
     fontWeight: '600',
   },
   loginContainer: {
@@ -315,11 +322,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loginText: {
-    fontSize: 14,
+    fontSize: IS_SMALL_SCREEN ? 13 : 14,
     opacity: 0.7,
   },
   loginLink: {
-    fontSize: 14,
+    fontSize: IS_SMALL_SCREEN ? 13 : 14,
     fontWeight: '600',
   },
 });

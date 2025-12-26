@@ -1,12 +1,13 @@
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { BaharLogo } from '@/components/common/bahar-logo';
+import { ThemedText } from '@/components/ui/themed-text';
+import { ThemedView } from '@/components/ui/themed-view';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { useAuthStore } from '@/store/auth';
-import { BaharLogo } from '@/components/bahar-logo';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, View, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { ActivityIndicator, Alert, Dimensions, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_SMALL_SCREEN = SCREEN_WIDTH < 375;
@@ -17,8 +18,23 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   
   const login = useAuthStore((s) => s.login);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const savedUsername = await AsyncStorage.getItem('remembered-username');
+        if (savedUsername) {
+          setUsername(savedUsername);
+          setRememberMe(true);
+        }
+      } catch (error) {
+        console.error('Error loading remembered username:', error);
+      }
+    })();
+  }, []);
   
   const tint = useThemeColor({}, 'tint');
   const text = useThemeColor({}, 'text');
@@ -38,7 +54,11 @@ export default function LoginScreen() {
       const result = await login(username.trim(), password);
       
       if (result.success) {
-        // Navigation will be handled by _layout.tsx
+        if (rememberMe) {
+          await AsyncStorage.setItem('remembered-username', username.trim());
+        } else {
+          await AsyncStorage.removeItem('remembered-username');
+        }
         router.replace('/(tabs)');
       } else {
         Alert.alert('Giriş Hatası', result.error || 'Giriş yapılamadı');
@@ -76,31 +96,6 @@ export default function LoginScreen() {
           ]}>
             Coin portföyünüze giriş yapın
           </ThemedText>
-          
-          <View style={[
-            styles.demoInfo, 
-            { 
-              backgroundColor: cardBg as string, 
-              borderColor: border as string,
-              padding: IS_SMALL_SCREEN ? 10 : 12,
-            }
-          ]}>
-            <MaterialCommunityIcons 
-              name="information-outline" 
-              size={IS_SMALL_SCREEN ? 14 : 16} 
-              color={muted as string} 
-              style={{ marginRight: IS_SMALL_SCREEN ? 6 : 8 }} 
-            />
-            <ThemedText style={[
-              styles.demoText, 
-              { 
-                color: muted as string,
-                fontSize: IS_SMALL_SCREEN ? 11 : 12,
-              }
-            ]}>
-              Demo: <ThemedText style={{ fontWeight: '600' }}>demo</ThemedText> / <ThemedText style={{ fontWeight: '600' }}>demo123</ThemedText>
-            </ThemedText>
-          </View>
 
           {/* Form */}
           <View style={styles.form}>
@@ -155,6 +150,24 @@ export default function LoginScreen() {
               </Pressable>
             </View>
 
+            {/* Remember Me */}
+            <View style={styles.rememberMeContainer}>
+              <Pressable
+                onPress={() => setRememberMe(!rememberMe)}
+                style={styles.rememberMePressable}
+                disabled={loading}
+              >
+                <Switch
+                  value={rememberMe}
+                  onValueChange={setRememberMe}
+                  trackColor={{ false: muted as string, true: tint as string }}
+                  thumbColor="#ffffff"
+                  disabled={loading}
+                />
+                <ThemedText style={styles.rememberMeText}>Beni Hatırla</ThemedText>
+              </Pressable>
+            </View>
+
             {/* Login Button */}
             <Pressable
               style={[
@@ -172,10 +185,9 @@ export default function LoginScreen() {
               )}
             </Pressable>
 
-            {/* Register Link */}
             <View style={styles.registerContainer}>
               <ThemedText style={styles.registerText}>Hesabınız yok mu? </ThemedText>
-              <Pressable onPress={() => router.push('/register')} disabled={loading}>
+              <Pressable onPress={() => router.replace('/register')} disabled={loading}>
                 <ThemedText style={[styles.registerLink, { color: tint as string }]}>
                   Kayıt Ol
                 </ThemedText>
@@ -243,6 +255,17 @@ const styles = StyleSheet.create({
     right: IS_SMALL_SCREEN ? 12 : 16,
     zIndex: 1,
     padding: 4,
+  },
+  rememberMeContainer: {
+    marginBottom: IS_SMALL_SCREEN ? 12 : 16,
+  },
+  rememberMePressable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  rememberMeText: {
+    fontSize: IS_SMALL_SCREEN ? 13 : 14,
+    marginLeft: IS_SMALL_SCREEN ? 8 : 10,
   },
   button: {
     height: IS_SMALL_SCREEN ? 48 : 52,

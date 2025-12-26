@@ -1,18 +1,18 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { FlatList, View, Pressable, TouchableOpacity, ActivityIndicator, RefreshControl, ScrollView, Dimensions } from 'react-native';
+import { FlatList, View, Pressable, TouchableOpacity, ActivityIndicator, RefreshControl, ScrollView, Dimensions, Platform } from 'react-native';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_SMALL_SCREEN = SCREEN_WIDTH < 375;
 const IS_MEDIUM_SCREEN = SCREEN_WIDTH >= 375 && SCREEN_WIDTH < 414;
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { ThemedText } from '@/components/ui/themed-text';
+import { ThemedView } from '@/components/ui/themed-view';
 import { usePortfolioStore, calculateTotals } from '@/store/portfolio';
 import { fetch24hTickersUSDT, fetchAllUSDTPrices, fetchKlines } from '@/services/binance';
 import { startUSDTSpotMiniTicker } from '@/services/realtime';
 import { Card } from '@/components/ui/card';
-import { CoinAvatar } from '@/components/coin-avatar';
-import { Sparkline } from '@/components/sparkline';
+import { CoinAvatar } from '@/components/ui/coin-avatar';
+import { Sparkline } from '@/components/charts/sparkline';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -69,83 +69,93 @@ const CoinRowItem = React.memo(({
   return (
     <Link href={{ pathname: '/coin/[symbol]', params: { symbol: item.symbol } }} asChild>
       <Pressable style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: IS_SMALL_SCREEN ? 10 : 12,
-        paddingHorizontal: IS_SMALL_SCREEN ? 10 : 12,
-        backgroundColor: cardBg,
-        borderRadius: 12,
-        marginBottom: 8,
+        marginBottom: IS_SMALL_SCREEN ? 10 : 12,
       }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-          <TouchableOpacity
-            onPress={(e) => {
-              e.stopPropagation();
-              onToggleFavorite(item.symbol);
-            }}
-            style={{ marginRight: IS_SMALL_SCREEN ? 6 : 8 }}
-          >
-            <MaterialCommunityIcons
-              name={isFavorite ? 'star' : 'star-outline'}
-              size={IS_SMALL_SCREEN ? 16 : 18}
-              color={isFavorite ? '#FFD700' : text}
-              style={{ opacity: isFavorite ? 1 : 0.5 }}
-            />
-          </TouchableOpacity>
-          <CoinAvatar symbol={item.symbol} size={IS_SMALL_SCREEN ? 28 : 32} />
-          <View style={{ marginLeft: IS_SMALL_SCREEN ? 6 : 8, flex: 1 }}>
-            <ThemedText 
-              numberOfLines={1}
-              style={{ fontWeight: '600', fontSize: IS_SMALL_SCREEN ? 13 : 15 }}>
-              {coinName || item.symbol}
-            </ThemedText>
-          </View>
-        </View>
-
-        <View style={{ 
-          alignItems: 'flex-end', 
-          marginRight: IS_SMALL_SCREEN ? 8 : 12, 
-          width: IS_SMALL_SCREEN ? 75 : IS_MEDIUM_SCREEN ? 85 : 90,
-          minWidth: IS_SMALL_SCREEN ? 75 : 85,
+        <Card style={{
+          padding: IS_SMALL_SCREEN ? 14 : 16,
+          ...Platform.select({
+            ios: {
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.05,
+              shadowRadius: 3,
+            },
+            android: {
+              elevation: 2,
+            },
+          }),
         }}>
-          <ThemedText style={{ 
-            fontWeight: '600', 
-            fontSize: IS_SMALL_SCREEN ? 12 : 14, 
-            marginBottom: 2 
-          }}>
-            {price > 0 ? price.toFixed(price < 1 ? 6 : price < 10 ? 4 : 2) : '0.00'}
-          </ThemedText>
-          {sparklineData.length > 0 && (
-            <View style={{ marginTop: 4, marginBottom: 4 }}>
-              <Sparkline
-                data={sparklineData}
-                width={IS_SMALL_SCREEN ? 60 : 70}
-                height={IS_SMALL_SCREEN ? 16 : 18}
-                autoColor={true}
-                showGradient={true}
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity
+              onPress={(e) => {
+                e.stopPropagation();
+                onToggleFavorite(item.symbol);
+              }}
+              style={{ marginRight: IS_SMALL_SCREEN ? 10 : 12 }}
+            >
+              <MaterialCommunityIcons
+                name={isFavorite ? 'star' : 'star-outline'}
+                size={IS_SMALL_SCREEN ? 18 : 20}
+                color={isFavorite ? '#FFD700' : text}
+                style={{ opacity: isFavorite ? 1 : 0.4 }}
               />
+            </TouchableOpacity>
+            <CoinAvatar symbol={item.symbol} size={IS_SMALL_SCREEN ? 36 : 40} />
+            <View style={{ flex: 1, marginLeft: IS_SMALL_SCREEN ? 10 : 12 }}>
+              <ThemedText 
+                numberOfLines={1}
+                style={{ 
+                  fontWeight: '600', 
+                  fontSize: IS_SMALL_SCREEN ? 15 : 16,
+                  marginBottom: 4,
+                }}>
+                {coinName || item.symbol}
+              </ThemedText>
+              {sparklineData.length > 0 && (
+                <View style={{ marginTop: 2 }}>
+                  <Sparkline
+                    data={sparklineData}
+                    width={IS_SMALL_SCREEN ? 80 : 100}
+                    height={IS_SMALL_SCREEN ? 20 : 24}
+                    autoColor={true}
+                    showGradient={true}
+                  />
+                </View>
+              )}
             </View>
-          )}
-          {item.volumeQ && item.volumeQ > 0 && !IS_SMALL_SCREEN && (
-            <ThemedText style={{ fontSize: 10, opacity: 0.5 }}>
-              Vol: {formatCurrency(item.volumeQ)}
-            </ThemedText>
-          )}
-        </View>
-
-        <View style={{ 
-          alignItems: 'flex-end', 
-          width: IS_SMALL_SCREEN ? 70 : 80,
-          minWidth: IS_SMALL_SCREEN ? 70 : 80,
-        }}>
-          <ThemedText style={{
-            fontSize: IS_SMALL_SCREEN ? 12 : 14,
-            fontWeight: '600',
-            color: isPositive ? success : danger,
-          }}>
-            {isPositive ? '+' : ''}{changePct.toFixed(2)}%
-          </ThemedText>
-        </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <ThemedText style={{ 
+                fontWeight: '600', 
+                fontSize: IS_SMALL_SCREEN ? 14 : 16,
+                marginBottom: 4,
+              }}>
+                ${price > 0 ? price.toFixed(price < 1 ? 6 : price < 10 ? 4 : 2) : '0.00'}
+              </ThemedText>
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: isPositive ? `${success}20` : `${danger}20`,
+                paddingHorizontal: IS_SMALL_SCREEN ? 6 : 8,
+                paddingVertical: IS_SMALL_SCREEN ? 3 : 4,
+                borderRadius: 6,
+              }}>
+                <MaterialCommunityIcons
+                  name={isPositive ? 'trending-up' : 'trending-down'}
+                  size={IS_SMALL_SCREEN ? 12 : 14}
+                  color={isPositive ? success : danger}
+                  style={{ marginRight: 2 }}
+                />
+                <ThemedText style={{
+                  fontSize: IS_SMALL_SCREEN ? 12 : 13,
+                  fontWeight: '600',
+                  color: isPositive ? success : danger,
+                }}>
+                  {isPositive ? '+' : ''}{changePct.toFixed(2)}%
+                </ThemedText>
+              </View>
+            </View>
+          </View>
+        </Card>
       </Pressable>
     </Link>
   );
@@ -488,10 +498,10 @@ export default function HomeScreen() {
               </View>
               {items && items.length > 0 && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: cardBg as string, paddingHorizontal: IS_SMALL_SCREEN ? 6 : 8, paddingVertical: IS_SMALL_SCREEN ? 3 : 4, borderRadius: 12 }}>
-                  <MaterialCommunityIcons name="cash-multiple" size={IS_SMALL_SCREEN ? 10 : 12} color={tint as string} style={{ marginRight: 4 }} />
-                  <ThemedText style={{ fontSize: IS_SMALL_SCREEN ? 10 : 11, fontWeight: '600', color: tint as string }}>
+                  <ThemedText style={{ fontSize: IS_SMALL_SCREEN ? 10 : 11, fontWeight: '600', color: tint as string, marginRight: 4 }}>
                     {items.length} coin
                   </ThemedText>
+                  <MaterialCommunityIcons name="eye-outline" size={IS_SMALL_SCREEN ? 10 : 12} color={tint as string} />
                 </View>
               )}
             </View>
@@ -653,12 +663,16 @@ export default function HomeScreen() {
         </View>
       )}
 
-      <View style={{ 
-        flexDirection: 'row', 
-        marginHorizontal: IS_SMALL_SCREEN ? 12 : 16, 
-        marginBottom: IS_SMALL_SCREEN ? 10 : 12, 
-        gap: IS_SMALL_SCREEN ? 6 : 8 
-      }}>
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ 
+          gap: IS_SMALL_SCREEN ? 6 : 8, 
+          paddingHorizontal: IS_SMALL_SCREEN ? 12 : 16,
+          paddingRight: IS_SMALL_SCREEN ? 12 : 16,
+        }}
+        style={{ marginBottom: IS_SMALL_SCREEN ? 10 : 12 }}
+      >
         {(['favorites', 'hot', 'gainers', 'losers'] as TabType[]).map((tab) => {
           const isActive = activeTab === tab;
           const favoritesCount = tab === 'favorites' ? favorites.size : 0;
@@ -671,8 +685,8 @@ export default function HomeScreen() {
                 paddingHorizontal: IS_SMALL_SCREEN ? 12 : 16,
                 paddingVertical: IS_SMALL_SCREEN ? 6 : 8,
                 borderRadius: 20,
-                backgroundColor: isActive ? (cardBg as string) : 'transparent',
-                borderWidth: isActive ? 1 : 0,
+                backgroundColor: isActive ? (tint as string) : 'transparent',
+                borderWidth: isActive ? 0 : 1,
                 borderColor: border as string,
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -685,14 +699,14 @@ export default function HomeScreen() {
                 style={{
                   fontSize: IS_SMALL_SCREEN ? 12 : 14,
                   fontWeight: isActive ? '600' : '400',
-                  textTransform: 'capitalize',
+                  color: isActive ? '#ffffff' : (text as string),
                 }}>
                 {tab === 'favorites' ? 'Favoriler' : tab === 'hot' ? 'Popüler' : tab === 'gainers' ? 'Yükselenler' : 'Düşenler'}
               </ThemedText>
               {tab === 'favorites' && favoritesCount > 0 && (
                 <View style={{
                   marginLeft: IS_SMALL_SCREEN ? 4 : 6,
-                  backgroundColor: isActive ? (tint as string) : (muted as string),
+                  backgroundColor: isActive ? 'rgba(255, 255, 255, 0.3)' : (muted as string),
                   borderRadius: 10,
                   paddingHorizontal: IS_SMALL_SCREEN ? 5 : 6,
                   paddingVertical: 2,
@@ -711,34 +725,7 @@ export default function HomeScreen() {
             </Pressable>
           );
         })}
-      </View>
-
-      <View style={{ 
-        flexDirection: 'row', 
-        justifyContent: 'space-between', 
-        paddingHorizontal: IS_SMALL_SCREEN ? 20 : 28,
-        paddingVertical: IS_SMALL_SCREEN ? 6 : 8,
-        marginBottom: 8,
-      }}>
-        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-          <View style={{ width: IS_SMALL_SCREEN ? 16 : 18, marginRight: IS_SMALL_SCREEN ? 6 : 8 }} />
-          <View style={{ width: IS_SMALL_SCREEN ? 28 : 32, marginRight: IS_SMALL_SCREEN ? 6 : 8 }} />
-          <ThemedText style={{ fontSize: IS_SMALL_SCREEN ? 11 : 12, opacity: 0.6 }}>Coin</ThemedText>
-        </View>
-        <ThemedText style={{ 
-          fontSize: IS_SMALL_SCREEN ? 11 : 12, 
-          opacity: 0.6, 
-          textAlign: 'right', 
-          width: IS_SMALL_SCREEN ? 75 : IS_MEDIUM_SCREEN ? 85 : 90,
-          marginRight: IS_SMALL_SCREEN ? 8 : 12,
-        }}>Son Fiyat</ThemedText>
-        <ThemedText style={{ 
-          fontSize: IS_SMALL_SCREEN ? 11 : 12, 
-          opacity: 0.6, 
-          textAlign: 'right', 
-          width: IS_SMALL_SCREEN ? 70 : 80 
-        }}>24s Değişim</ThemedText>
-      </View>
+      </ScrollView>
     </>
   ), [totals, success, danger, text, cardBg, border, activeTab, favorites.size, tint, muted, topGainers, topLosers, router, items]);
 
@@ -793,7 +780,9 @@ export default function HomeScreen() {
         keyExtractor={keyExtractor}
         ListHeaderComponent={ListHeaderComponent}
         ListEmptyComponent={ListEmptyComponent}
-        contentContainerStyle={{ paddingBottom: 20 }}
+        contentContainerStyle={{ 
+          paddingBottom: 100,
+        }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
